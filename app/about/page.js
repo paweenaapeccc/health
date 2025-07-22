@@ -9,7 +9,7 @@ export default function AboutPage() {
   const pathname = usePathname();
 
   return (
-    <div className="min-h-screen flex flex-col bg-[#e0f7f4] dark:bg-[#0f2f2e] text-black dark:text-white transition-colors duration-300">
+    <div className="min-h-screen flex flex-col text-black dark:text-white transition-colors duration-300">
       {/* About Section */}
       <main className="flex-grow flex items-center justify-center px-6 py-12">
         <div className="bg-white dark:bg-zinc-800 p-8 rounded-xl shadow-md w-full max-w-2xl">

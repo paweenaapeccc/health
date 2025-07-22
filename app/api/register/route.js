@@ -1,14 +1,28 @@
 import { connectDB } from '@/lib/db'
 import bcrypt from 'bcrypt'
 
+// ประกาศ secretMap แค่ครั้งเดียว โดยใช้ environment variables
+const secretMap = {
+  admin: process.env.ADMIN_SECRET,
+  executive: process.env.EXECUTIVE_SECRET,
+}
+
 export async function POST(req) {
   try {
-    const { username, password, role } = await req.json()
+    const { username, password, role, secret } = await req.json()
 
     if (!username || !password || !role) {
       return new Response(
         JSON.stringify({ message: 'username, password และ role ต้องระบุ' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // ถ้า role เป็น admin หรือ executive ต้องมี secret และต้องถูกต้อง
+    if ((role === 'admin' || role === 'executive') && secret !== secretMap[role]) {
+      return new Response(
+        JSON.stringify({ message: 'รหัสลับไม่ถูกต้องสำหรับบทบาทนี้' }),
+        { status: 403, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
