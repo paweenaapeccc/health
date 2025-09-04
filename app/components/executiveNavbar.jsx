@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { Home, LogIn, LogOut, Info } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-function ExcusiveNavbar() {
+function ExecutiveNavbar() {
   const pathname = usePathname()
   const router = useRouter()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -55,9 +55,9 @@ function ExcusiveNavbar() {
           {/* หน้าหลัก */}
           <li>
             <Link
-              href="/admin"
+              href="/executive"
               className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                pathname === '/'
+                pathname === '/executive'
                   ? 'bg-blue-200 text-blue-800 font-semibold'
                   : 'text-gray-700 hover:bg-blue-100'
               }`}
@@ -67,34 +67,18 @@ function ExcusiveNavbar() {
             </Link>
           </li>
 
-          {/* เมนู admin */}
-          {isLoggedIn && role === 'admin' && (
+          {/* เมนู executive */}
+          {isLoggedIn && role === 'executive' && (
             <li>
               <Link
-                href="/admin"
+                href="/executive"
                 className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                  pathname.startsWith('/admin')
+                  pathname.startsWith('/executive')
                     ? 'bg-blue-200 text-blue-800 font-semibold'
                     : 'text-gray-700 hover:bg-blue-100'
                 }`}
               >
-                <span>แดชบอร์ดผู้ดูแล</span>
-              </Link>
-            </li>
-          )}
-
-          {/* เมนู member (admin เห็นด้วย) */}
-          {isLoggedIn && (role === 'member' || role === 'admin') && (
-            <li>
-              <Link
-                href="/member"
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                  pathname.startsWith('/member')
-                    ? 'bg-blue-200 text-blue-800 font-semibold'
-                    : 'text-gray-700 hover:bg-blue-100'
-                }`}
-              >
-                <span>แดชบอร์ดสมาชิก</span>
+                <span>วิเคราะห์ข้อมูล</span>
               </Link>
             </li>
           )}
@@ -149,4 +133,4 @@ function ExcusiveNavbar() {
   );
 }
 
-export default ExcusiveNavbar;
+export default ExecutiveNavbar;
