@@ -117,7 +117,7 @@ function ExcusiveNavbar() {
           {/* แสดงชื่อผู้ใช้ */}
           {isLoggedIn && (
             <li className="text-sm text-gray-800 dark:text-gray-200">
-              สวัสดี, {username} ({role})
+              สวัสดี, {username} 
             </li>
           )}
 

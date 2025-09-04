@@ -80,7 +80,7 @@ export default function adminNavbar() {
                     : 'text-gray-700 hover:bg-blue-100'
                 }`}
               >
-                <span>แดชบอร์ดผู้ดูแล</span>
+                <span>Admin</span>
               </Link>
             </li>
           )}
@@ -96,7 +96,7 @@ export default function adminNavbar() {
                     : 'text-gray-700 hover:bg-blue-100'
                 }`}
               >
-                <span>แดชบอร์ดสมาชิก</span>
+                <span>สมาชิก</span>
               </Link>
             </li>
           )}
@@ -119,7 +119,7 @@ export default function adminNavbar() {
           {/* แสดงชื่อผู้ใช้ */}
           {isLoggedIn && (
             <li className="text-sm text-gray-800 dark:text-gray-200">
-              สวัสดี, {username} ({role})
+              สวัสดี, {username} 
             </li>
           )}
 
