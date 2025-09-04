@@ -3,8 +3,7 @@ import { jwtVerify } from 'jose'
 
 export async function GET() {
   const cookieStore = await cookies()
-  const tokenCookie = cookieStore.get('token')
-  const token = tokenCookie?.value
+  const token = cookieStore.get('token')?.value
 
   if (!token) {
     return Response.json({ isLoggedIn: false })
@@ -14,10 +13,17 @@ export async function GET() {
     const secret = new TextEncoder().encode(process.env.JWT_SECRET)
     const { payload } = await jwtVerify(token, secret)
 
+    // ✅ ดึง userId จาก payload.userId หรือ sub
+    const userId = Number(payload.userId ?? payload.sub)
+
     return Response.json({
       isLoggedIn: true,
+      userId: Number.isFinite(userId) ? userId : null,
       username: payload.username,
-      role: payload.role
+      role: payload.role,
+      // ออปชัน: เผื่ออยากใช้งานต่อ
+      iat: payload.iat ?? null,
+      exp: payload.exp ?? null,
     })
   } catch (err) {
     console.error('JWT invalid:', err)

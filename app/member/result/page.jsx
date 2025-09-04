@@ -1,14 +1,21 @@
 'use client'
 
 import React from 'react'
+import { useSearchParams } from 'next/navigation'
 
 const ResultPage = () => {
+  const params = useSearchParams()
+
+  const scores = [1, 2, 3, 4, 5].map((i) =>
+    parseInt(params.get(`q${i}`) || '0')
+  )
+
   const assessments = [
-    { topic: 'ปวดข้อเข่าในขณะเดิน', score: 3 },
-    { topic: 'ข้อเข่าฝืดหลังตื่นนอน', score: 2 },
-    { topic: 'ข้อเข่ามีเสียงเมื่อขยับ', score: 1 },
-    { topic: 'มีข้อจำกัดในการขึ้นลงบันได', score: 4 },
-    { topic: 'มีบวม/กดเจ็บบริเวณข้อเข่า', score: 3 }
+    { topic: 'ปวดข้อเข่าในขณะเดิน', score: scores[0] },
+    { topic: 'ข้อเข่าฝืดหลังตื่นนอน', score: scores[1] },
+    { topic: 'ข้อเข่ามีเสียงเมื่อขยับ', score: scores[2] },
+    { topic: 'มีข้อจำกัดในการขึ้นลงบันได', score: scores[3] },
+    { topic: 'มีบวม/กดเจ็บบริเวณข้อเข่า', score: scores[4] }
   ]
 
   const getComment = (score) => {
@@ -25,7 +32,7 @@ const ResultPage = () => {
     return 'ปกติ'
   }
 
-  const totalScore = assessments.reduce((sum, item) => sum + item.score, 0)
+  const totalScore = scores.reduce((sum, s) => sum + s, 0)
   const severity = getSeverity(totalScore)
 
   return (

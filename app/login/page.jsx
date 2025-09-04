@@ -26,20 +26,13 @@ export default function LoginPage() {
       if (!res.ok) {
         setError(data.message || 'Login failed')
       } else {
-        // ✅ redirect ตาม role 
-        switch (data.role) {
-          case 'admin':
-            router.push('/admin')
-            break
-          case 'executive':
-            router.push('/executive')
-            break
-          case 'user':
-            router.push('/member')
-            break
-          default:
-            router.push('/')
-            break
+        // ✅ redirect ตาม role
+        if (data.role === 'admin') {
+          router.push('/admin')
+        } else if (data.role === 'executive') {
+          router.push('/executive')
+        } else {
+          router.push('/member')
         }
       }
     } catch (err) {

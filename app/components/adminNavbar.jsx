@@ -3,10 +3,10 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, LogIn, LogOut, Info } from 'lucide-react'
+import { Home, LogIn, LogOut, Info, Users } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
-export default function adminNavbar() {
+export default function AdminNavbar() {
   const pathname = usePathname()
   const router = useRouter()
   const [isLoggedIn, setIsLoggedIn] = useState(false)
@@ -18,8 +18,6 @@ export default function adminNavbar() {
       try {
         const res = await fetch('/api/session', { cache: 'no-store' })
         const data = await res.json()
-        // console.log(data);
-        
         setIsLoggedIn(data.isLoggedIn)
         setUsername(data.username || '')
         setRole(data.role || '')
@@ -29,7 +27,6 @@ export default function adminNavbar() {
         setRole('')
       }
     }
-
     checkSession()
   }, [pathname])
 
@@ -59,7 +56,7 @@ export default function adminNavbar() {
             <Link
               href="/admin"
               className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                pathname === '/'
+                pathname === '/admin'
                   ? 'bg-blue-200 text-blue-800 font-semibold'
                   : 'text-gray-700 hover:bg-blue-100'
               }`}
@@ -69,34 +66,19 @@ export default function adminNavbar() {
             </Link>
           </li>
 
-          {/* เมนู admin */}
+          {/* Elderly */}
           {isLoggedIn && role === 'admin' && (
             <li>
               <Link
-                href="/admin/dashboard"
+                href="/admin/elderly"
                 className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                  pathname === '/admin/dashboard'
+                  pathname.startsWith('/admin/elderly')
                     ? 'bg-blue-200 text-blue-800 font-semibold'
                     : 'text-gray-700 hover:bg-blue-100'
                 }`}
               >
-                <span>Admin</span>
-              </Link>
-            </li>
-          )}
-
-          {/* เมนู member (admin เห็นด้วย) */}
-          {isLoggedIn && (role === 'member' || role === 'admin') && (
-            <li>
-              <Link
-                href="/admin/member"
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                  pathname.startsWith('/admin/member')
-                    ? 'bg-blue-200 text-blue-800 font-semibold'
-                    : 'text-gray-700 hover:bg-blue-100'
-                }`}
-              >
-                <span>สมาชิก</span>
+                <Users size={20} />
+                <span>ผู้สูงอายุ</span>
               </Link>
             </li>
           )}
@@ -104,9 +86,9 @@ export default function adminNavbar() {
           {/* เกี่ยวกับเรา */}
           <li>
             <Link
-              href="/about"
+              href="/admin/about"
               className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                pathname === '/about'
+                pathname === '/admin/about'
                   ? 'bg-blue-200 text-blue-800 font-semibold'
                   : 'text-gray-700 hover:bg-blue-100'
               }`}
@@ -119,7 +101,7 @@ export default function adminNavbar() {
           {/* แสดงชื่อผู้ใช้ */}
           {isLoggedIn && (
             <li className="text-sm text-gray-800 dark:text-gray-200">
-              สวัสดี, {username} 
+              สวัสดี, {username}
             </li>
           )}
 
