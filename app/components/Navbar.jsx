@@ -1,35 +1,42 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Home, Info, LogIn, LogOut } from 'lucide-react'
 
 export default function Navbar() {
-  const pathname = usePathname()
-  const hideNavbar = pathname.startsWith('/member') || pathname.startsWith('/admin')
+  const pathname = usePathname() || '' // ✅ กัน null/undefined
+  // ซ่อนเฉพาะเส้นทางที่ต้องการจริง ๆ
+  const hideNavbar = useMemo(() => {
+    const protectedPrefixes = ['/member', '/admin', '/executive']
+    return protectedPrefixes.some(p => pathname.startsWith(p))
+  }, [pathname])
 
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [username, setUsername] = useState('')
   const [role, setRole] = useState('')
 
   useEffect(() => {
+    let cancelled = false
     const checkSession = async () => {
       try {
         const res = await fetch('/api/session', { cache: 'no-store' })
         const data = await res.json()
-        setIsLoggedIn(data.isLoggedIn)
+        if (cancelled) return
+        setIsLoggedIn(!!data.isLoggedIn)
         setUsername(data.username || '')
         setRole(data.role || '')
       } catch {
+        if (cancelled) return
         setIsLoggedIn(false)
         setUsername('')
         setRole('')
       }
     }
-
     checkSession()
+    return () => { cancelled = true }
   }, [pathname])
 
   const handleLogout = async () => {
@@ -40,14 +47,14 @@ export default function Navbar() {
     window.location.href = '/'
   }
 
-  if (hideNavbar) return null
+  if (hideNavbar) return null  // ✅ หน้าหลัก '/' จะไม่โดนซ่อน
 
   return (
     <nav className="py-4 sticky top-0 z-50" style={{ backgroundColor: '#33CCCC' }}>
       <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
         {/* Logo & System Name */}
         <div className="flex items-center gap-2">
-          <Image src="/logo.jpeg" alt="Logo" width={40} height={40} />
+          <Image src="/logo.jpeg" alt="Logo" width={40} height={40} priority />
           <span className="font-semibold text-lg text-black">
             ระบบดูแลสุขภาพผู้สูงอายุที่มีภาวะข้อเข่าเสื่อม
           </span>
@@ -59,6 +66,8 @@ export default function Navbar() {
           <li>
             <Link
               href="/"
+              prefetch
+              aria-current={pathname === '/' ? 'page' : undefined}
               className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
                 pathname === '/'
                   ? 'bg-blue-200 text-blue-800 font-semibold'
@@ -74,6 +83,8 @@ export default function Navbar() {
           <li>
             <Link
               href="/about"
+              prefetch
+              aria-current={pathname === '/about' ? 'page' : undefined}
               className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
                 pathname === '/about'
                   ? 'bg-blue-200 text-blue-800 font-semibold'
@@ -85,10 +96,10 @@ export default function Navbar() {
             </Link>
           </li>
 
-          {/* แสดงชื่อผู้ใช้ */}
+          {/* ชื่อผู้ใช้ */}
           {isLoggedIn && (
-            <li className="text-sm text-gray-800 dark:text-gray-200">
-              สวัสดี, {username}
+            <li className="text-sm text-gray-800">
+              สวัสดี, {username}{role ? ` (${role})` : ''}
             </li>
           )}
 

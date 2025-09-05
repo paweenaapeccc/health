@@ -20,7 +20,6 @@ function MemberNavbar() {
         const data = await res.json()
         setIsLoggedIn(!!data.isLoggedIn)
         setUsername(data.username || '')
-        setRole(data.role || '')
       } catch {
         setIsLoggedIn(false)
         setUsername('')
@@ -84,17 +83,6 @@ function MemberNavbar() {
               <span>ทำแบบประเมิน</span>
             </Link>
           </li>
-
-          {/* ผลการประเมิน */}
-          <li>
-            <Link
-              href="/member/result"
-              className={itemCls(pathname.startsWith('/member/result'))}
-            >
-              <span>ผลการประเมิน</span>
-            </Link>
-          </li>
-
           {/* เกี่ยวกับเรา (ถ้ามีเพจนี้) */}
           <li>
             <Link

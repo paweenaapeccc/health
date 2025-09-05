@@ -53,9 +53,6 @@ export default function AssessmentResultPage() {
               <span className="font-semibold">ผลการประเมิน:</span>{" "}
               {result.as_results}
             </p>
-            <p className="text-lg text-gray-700 mb-4">
-              <span className="font-semibold">คะแนน:</span> {result.as_score}
-            </p>
           </>
         ) : (
           <p className="text-gray-500">ไม่พบผลการประเมิน</p>
