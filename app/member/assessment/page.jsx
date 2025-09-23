@@ -47,7 +47,7 @@ export default function KneeOAScreeningPage() {
   const resultText = useMemo(() => {
     if (!elderVerified || !allAnswered) return "";
     return yesCount >= 2
-      ? 'มีโอกาสที่จะเป็นโรคข้อเข่าเสื่อม (ตอบ "ใช่" ≥ 2 ข้อ)'
+      ? "มีโอกาสที่จะเป็นโรคข้อเข่าเสื่อม"
       : "ไม่เป็นโรคข้อเข่าเสื่อมตามเกณฑ์นี้";
   }, [elderVerified, allAnswered, yesCount]);
 
@@ -190,7 +190,7 @@ export default function KneeOAScreeningPage() {
           {!elderVerified && checkError && (
             <div className="mt-2 text-sm text-red-600">
               ⛔ {checkError}{" "}
-              <a href="/admin/elderly/add" className="underline text-indigo-700 hover:text-indigo-900">
+              <a href="/member/elderly/add" className="underline text-indigo-700 hover:text-indigo-900">
                 ไปเพิ่มชื่อที่ฐานข้อมูล
               </a>
             </div>
