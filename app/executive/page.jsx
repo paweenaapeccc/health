@@ -16,7 +16,6 @@ export default function HomePage() {
     console.log('token:', token)       // ดีบัก
     console.log('role:', storedRole)   // ดีบัก
 
-    // แก้เงื่อนไข ให้เช็คว่าต้องมี token และ role เป็น 'user'
     if (token && storedRole === 'user') {
       setRole('user')
     } else {
@@ -47,6 +46,11 @@ export default function HomePage() {
     <div>
       <main className="flex-grow flex justify-center items-start px-4 py-12">
         <div className="w-full max-w-4xl space-y-10">
+
+          {/* ✅ หัวข้อใหญ่ */}
+          <h1 className="text-3xl font-bold text-center text-teal-800">
+            รู้จักโรคข้อเข่าเสื่อม อาการ สาเหตุ พร้อมแนวทางการรักษาอย่างถูกวิธี
+          </h1>
 
           {/* แสดงข้อมูลสุขภาพ */}
           {loading && <p className="text-center">กำลังโหลดข้อมูล...</p>}
