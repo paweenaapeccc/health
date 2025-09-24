@@ -45,7 +45,7 @@ export default function HomePage() {
 
   return (
     <div>
-      <main className="flex-grow flex justify-center items-start px-4 py-12">
+      <main className="fflex-grow flex justify-center items-start px-4 py-12">
         <div className="w-full max-w-4xl space-y-10">
 
           {/* แสดงข้อมูลสุขภาพ */}
