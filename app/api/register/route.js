@@ -1,28 +1,14 @@
 import { connectDB } from '@/lib/db'
 import bcrypt from 'bcrypt'
 
-// ประกาศ secretMap แค่ครั้งเดียว โดยใช้ environment variables
-const secretMap = {
-  admin: process.env.ADMIN_SECRET,
-  executive: process.env.EXECUTIVE_SECRET,
-}
-
 export async function POST(req) {
   try {
-    const { username, password, role, secret } = await req.json()
+    const { username, password } = await req.json()
 
-    if (!username || !password || !role) {
+    if (!username || !password) {
       return new Response(
-        JSON.stringify({ message: 'username, password และ role ต้องระบุ' }),
+        JSON.stringify({ message: 'username และ password ต้องระบุ' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // ถ้า role เป็น admin หรือ executive ต้องมี secret และต้องถูกต้อง
-    if ((role === 'admin' || role === 'executive') && secret !== secretMap[role]) {
-      return new Response(
-        JSON.stringify({ message: 'รหัสลับไม่ถูกต้องสำหรับบทบาทนี้' }),
-        { status: 403, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
@@ -40,15 +26,15 @@ export async function POST(req) {
     // เข้ารหัสรหัสผ่าน
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // insert ลง DB
+    // สมัครปกติ → role = 'user' ตลอด
     await db.query('INSERT INTO user (username, password, role) VALUES (?, ?, ?)', [
       username,
       hashedPassword,
-      role,
+      'user',
     ])
 
     return new Response(
-      JSON.stringify({ message: 'สมัครสมาชิกสำเร็จ' }),
+      JSON.stringify({ message: 'สมัครสมาชิกสำเร็จ', role: 'user' }),
       { status: 201, headers: { 'Content-Type': 'application/json' } }
     )
   } catch (error) {
