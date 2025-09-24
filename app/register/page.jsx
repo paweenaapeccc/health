@@ -12,14 +12,14 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setError('') // ล้าง error ก่อนส่ง
+    setError('')
 
     const res = await fetch('/api/register', {
       method: 'POST',
       body: JSON.stringify({
         username,
         password,
-        role: 'user', // กำหนดค่า role เป็น user ตลอด
+        role: 'user', // 🔑 สมัครแล้วกำหนด role เป็น user ตลอด
       }),
       headers: { 'Content-Type': 'application/json' },
     })
@@ -42,15 +42,6 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-teal-100 relative">
-      {/* ปุ่มย้อนกลับ */}
-      <Link
-        href="/login"
-        className="absolute top-4 left-4 text-teal-700 text-sm hover:underline flex items-center"
-      >
-        <span className="mr-1 text-lg">&larr;</span> กลับเข้าสู่ระบบ
-      </Link>
-
-      {/* กล่องฟอร์มสมัคร */}
       <div className="flex items-center justify-center h-full px-4">
         <div className="w-full max-w-sm bg-white p-8 shadow-md rounded-2xl mt-10">
           <h2 className="text-2xl font-semibold text-center mb-6 mt-2">สมัครสมาชิก</h2>

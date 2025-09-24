@@ -10,39 +10,50 @@ export async function POST(req) {
     }
 
     const db = await connectDB()
-    const [rows] = await db.query('SELECT * FROM user WHERE username = ?', [username])
-    const user = rows[0]
-    if (!user) return new Response(JSON.stringify({ message: 'User not found' }), { status: 404 })
 
-    const valid = await bcrypt.compare(password, user.password)
-    if (!valid) return new Response(JSON.stringify({ message: 'Invalid password' }), { status: 401 })
+    // ใช้ชื่อคอลัมน์ตรงกับตาราง: userID, username, password, role
+    const [rows] = await db.query('SELECT userID, username, password, role FROM user WHERE username = ?', [username])
+    const user = rows && rows[0]
+    if (!user) {
+      return new Response(JSON.stringify({ message: 'User not found' }), { status: 404 })
+    }
 
-    // ✅ สร้าง JWT
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET)
-    const jwt = await new SignJWT({
-      userID: user.userID,
+    const ok = await bcrypt.compare(password, user.password)
+    if (!ok) {
+      return new Response(JSON.stringify({ message: 'Invalid password' }), { status: 401 })
+    }
+
+    const role = user.role || 'user'
+
+    // สร้าง JWT (ใส่ iat + อายุ 1 วัน)
+    const secret = new TextEncoder().encode(process.env.JWT_SECRET || 'devsecret')
+    const token = await new SignJWT({
+      userID: user.userID,       // ตรงกับตารางของคุณ (เช่น USR001)
       username: user.username,
-      role: user.role
+      role,
     })
       .setProtectedHeader({ alg: 'HS256' })
+      .setIssuedAt()
       .setExpirationTime('1d')
       .sign(secret)
 
-    // ✅ เซ็ต cookie
-    const cookie = `token=${jwt}; HttpOnly; Path=/; Max-Age=86400; SameSite=Strict; ${
-      process.env.NODE_ENV === 'production' ? 'Secure;' : ''
-    }`
+    // ตั้งคุกกี้แบบปลอดภัย
+    const cookie = [
+      `token=${token}`,
+      'HttpOnly',
+      'Path=/',
+      'Max-Age=86400',        // 1 วัน
+      'SameSite=Lax',         // ปลอดภัยและใช้งานได้กับ redirect ภายในไซต์
+      ...(process.env.NODE_ENV === 'production' ? ['Secure'] : []),
+    ].join('; ')
 
-    return new Response(
-      JSON.stringify({ message: 'Login successful', role: user.role }),
-      {
-        status: 200,
-        headers: {
-          'Set-Cookie': cookie,
-          'Content-Type': 'application/json'
-        }
-      }
-    )
+    return new Response(JSON.stringify({ message: 'Login successful', role }), {
+      status: 200,
+      headers: {
+        'Set-Cookie': cookie,
+        'Content-Type': 'application/json',
+      },
+    })
   } catch (err) {
     console.error(err)
     return new Response(JSON.stringify({ message: 'Internal error' }), { status: 500 })
