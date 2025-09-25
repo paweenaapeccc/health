@@ -108,7 +108,8 @@ export default function AddElderlyMemberPage() {
                 </div>
 
                 <div>
-                  <label className={label}>เบอร์โทรศัพท์</label>
+                  <label className={label}>เบอร์โทรศัพท์<span className="text-red-500">*</span>
+                  </label>
                   <input
                     name="phoneNumber"
                     placeholder="เช่น 0812345678"
@@ -119,7 +120,8 @@ export default function AddElderlyMemberPage() {
                 </div>
 
                 <div>
-                  <label className={label}>รหัสบัตรประชาชน</label>
+                  <label className={label}>รหัสบัตรประชาชน<span className="text-red-500">*</span>
+                  </label>
                   <input
                     name="citizenID"
                     placeholder="13 หลัก"
@@ -230,20 +232,10 @@ export default function AddElderlyMemberPage() {
               <h2 className={sectionTitle}>พิกัด</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className={label}>ละติจูด</label>
+                  <label className={label}>ละติจูด-ลองจิจูด</label>
                   <input
                     name="latitude"
-                    placeholder="เช่น 14.999999"
-                    className={input}
-                    onChange={handleChange}
-                    {...antiAutofill}
-                  />
-                </div>
-                <div>
-                  <label className={label}>ลองจิจูด</label>
-                  <input
-                    name="longitude"
-                    placeholder="เช่น 103.000000"
+                    placeholder="เช่น 14.999999,103.000000"
                     className={input}
                     onChange={handleChange}
                     {...antiAutofill}
