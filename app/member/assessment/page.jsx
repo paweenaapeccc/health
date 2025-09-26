@@ -1,13 +1,14 @@
 // app/member/assessment/page.jsx
 "use client";
 
-import React, { useMemo, useState, useEffect } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/api";
-const CHECK_ELDER_ENDPOINT = `${API_BASE}/elderly/exists`; // เปลี่ยนมาเช็ก citizenID
-const SAVE_ASSESSMENT_ENDPOINT = `${API_BASE}/assessment`;
-const SAVE_RESULTS_ENDPOINT = `${API_BASE}/assessment_results`;
+const CHECK_ELDER_ENDPOINT = `${API_BASE}/elderly/exists`;
+const SAVE_ASSESSMENT_ENDPOINT = `${API_BASE}/assessment`;               // healthassessment
+const SAVE_RESULTS_ENDPOINT = `${API_BASE}/assessment_results`;          // assessmentresults
+const GET_RESULT_ENDPOINT = (id) => `${API_BASE}/assessment_results/${encodeURIComponent(id)}`;
 
 const QUESTIONS = [
   { id: "stiffness",        th: "ข้อเข่าฝืดตอนเช้าน้อยกว่า 30 นาที" },
@@ -17,55 +18,38 @@ const QUESTIONS = [
   { id: "noWarmth",         th: "ไม่พบข้ออุ่น" },
 ];
 
-/* ===== Parent: มี mounted gate + skeleton ===== */
 export default function KneeOAScreeningPage() {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
-        <div className="w-full max-w-3xl bg-white rounded-2xl shadow-lg border border-gray-200 p-8 animate-pulse">
-          <div className="h-6 bg-gray-200 rounded w-1/2 mx-auto mb-6"></div>
-          <div className="h-4 bg-gray-200 rounded w-2/3 mb-4"></div>
-          <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
-          <div className="space-y-3">
-            <div className="h-4 bg-gray-200 rounded"></div>
-            <div className="h-4 bg-gray-200 rounded"></div>
-            <div className="h-4 bg-gray-200 rounded"></div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return <KneeOAScreeningForm />;
-}
-
-/* ===== Child: logic + hooks ทั้งหมด ===== */
-function KneeOAScreeningForm() {
   const router = useRouter();
 
-  // --- Elderly (ใช้ citizenID) ---
-  const [citizenID, setCitizenID] = useState("");
+  // ---------- เรียก hooks ให้ครบทุก render ----------
+  const [mounted, setMounted] = useState(false);
+
+  // Elderly
+  const [elderName, setElderName] = useState("");
   const [elderVerified, setElderVerified] = useState(false);
-  const [elderInfo, setElderInfo] = useState(null); // { elderlyID, citizenID, name? }
+  const [elderInfo, setElderInfo] = useState(null); // { elderlyID, name }
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState("");
 
-  // --- Answers ---
-  const [answers, setAnswers] = useState(
-    Object.fromEntries(QUESTIONS.map(q => [q.id, null])) // "yes" | "no" | null
+  // Answers
+  const [answers, setAnswers] = useState(() =>
+    Object.fromEntries(QUESTIONS.map((q) => [q.id, null])) // "yes" | "no" | null
   );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
+  // NEW: เก็บผลที่อ่านกลับจากฐานข้อมูล
+  const [resultRow, setResultRow] = useState(null); // { elderlyName, as_results, as_score, ... }
+
+  useEffect(() => setMounted(true), []);
+  // ----------------------------------------------------
+
   const yesCount = useMemo(
-    () => Object.values(answers).filter(v => v === "yes").length,
+    () => Object.values(answers).filter((v) => v === "yes").length,
     [answers]
   );
   const allAnswered = useMemo(
-    () => Object.values(answers).every(v => v !== null),
+    () => Object.values(answers).every((v) => v !== null),
     [answers]
   );
 
@@ -76,12 +60,14 @@ function KneeOAScreeningForm() {
       : "ไม่เป็นโรคข้อเข่าเสื่อมตามเกณฑ์นี้";
   }, [elderVerified, allAnswered, yesCount]);
 
-  const handleChange = (id, value) =>
-    setAnswers(prev => ({ ...prev, [id]: value }));
+  const handleChange = (id, value) => {
+    setAnswers((prev) => ({ ...prev, [id]: value }));
+  };
 
   const reset = () => {
-    setAnswers(Object.fromEntries(QUESTIONS.map(q => [q.id, null])));
+    setAnswers(Object.fromEntries(QUESTIONS.map((q) => [q.id, null])));
     setSaveError("");
+    setResultRow(null);
   };
 
   const checkElder = async () => {
@@ -91,19 +77,14 @@ function KneeOAScreeningForm() {
     setCheckError("");
 
     try {
-      const url = `${CHECK_ELDER_ENDPOINT}?citizenID=${encodeURIComponent(citizenID.trim())}`;
+      const url = `${CHECK_ELDER_ENDPOINT}?name=${encodeURIComponent(elderName.trim())}`;
       const res = await fetch(url, { cache: "no-store" });
       const data = await res.json();
-
       if (data?.exists) {
         setElderVerified(true);
-        setElderInfo({
-          elderlyID: data.elderlyID,
-          citizenID: data.citizenID,
-          name: data.name ?? "",
-        });
+        setElderInfo({ elderlyID: data.elderlyID, name: data.name || elderName.trim() });
       } else {
-        setCheckError("ไม่พบเลขบัตรนี้ในฐานข้อมูล กรุณาเพิ่มข้อมูลก่อนทำแบบประเมิน");
+        setCheckError("ไม่พบชื่อผู้สูงอายุในฐานข้อมูล กรุณาเพิ่มชื่อก่อนทำแบบประเมิน");
       }
     } catch {
       setCheckError("เกิดข้อผิดพลาดระหว่างตรวจสอบ");
@@ -114,9 +95,10 @@ function KneeOAScreeningForm() {
 
   const submitAssessment = async () => {
     setSaveError("");
+    setResultRow(null);
 
     if (!elderVerified) {
-      setSaveError("ต้องตรวจสอบเลขบัตรประชาชนให้ผ่านก่อน");
+      setSaveError("ต้องตรวจสอบชื่อผู้สูงอายุให้ผ่านก่อน");
       return;
     }
     if (!allAnswered) {
@@ -126,7 +108,7 @@ function KneeOAScreeningForm() {
 
     setSaving(true);
     try {
-      // 1) healthassessment
+      // 1) บันทึก healthassessment
       const payloadAssessment = {
         elderlyID: elderInfo.elderlyID,
         stiffness:       answers.stiffness === "yes" ? 1 : 0,
@@ -150,9 +132,9 @@ function KneeOAScreeningForm() {
       const yesFromServer = data1.yesCount ?? yesCount;
       const textFromServer = data1.resultText ?? resultText;
 
-      // 2) assessmentresults
+      // 2) บันทึก assessmentresults
       const payloadResults = {
-        assessmentID,
+        assessmentID, // ต้องตรงกับ healthassessment.assessmentID
         elderlyID: elderInfo.elderlyID,
         as_score: yesFromServer,
         as_results: textFromServer,
@@ -168,13 +150,36 @@ function KneeOAScreeningForm() {
         throw new Error(err?.message || "บันทึกผลสรุปไม่สำเร็จ");
       }
 
-      router.push(`/member/assessment/result?assessmentId=${assessmentID}`);
+      // 3) ดึงผลจากฐานข้อมูลที่เพิ่งบันทึกมาโชว์
+      const res3 = await fetch(GET_RESULT_ENDPOINT(assessmentID), { cache: "no-store" });
+      const data3 = await res3.json().catch(() => ({}));
+      if (res3.ok && data3?.data) {
+        setResultRow(data3.data); // { elderlyName, as_results, as_score, ... }
+      } else {
+        // ถ้าอ่านกลับไม่สำเร็จ ก็ยังพาไปหน้าผลได้
+        setResultRow({
+          elderlyName: elderInfo?.name ?? "",
+          as_results: textFromServer,
+          as_score: yesFromServer,
+        });
+      }
+
+      // ถ้าอยากไปหน้าแสดงผลเต็ม กดปุ่มได้ (ไม่ redirect อัตโนมัติ)
+      // router.push(`/member/assessment/result?assessmentId=${assessmentID}`);
     } catch (e) {
       setSaveError(e.message || "เกิดข้อผิดพลาดในการบันทึก");
     } finally {
       setSaving(false);
     }
   };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        กำลังโหลด...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
@@ -183,30 +188,29 @@ function KneeOAScreeningForm() {
           แบบประเมินคัดกรองโรคข้อเข่าเสื่อม
         </h1>
 
-        {/* เลขบัตรประชาชน */}
+        {/* ผู้สูงอายุ */}
         <div className="mb-5">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            เลขบัตรประชาชน <span className="text-red-600">*</span>
+            ชื่อผู้สูงอายุ <span className="text-red-600">*</span>
           </label>
-          <div className="flex gap-2">
+          <div className="flex gap-2" suppressHydrationWarning>
             <input
               type="text"
-              inputMode="numeric"
-              pattern="\d{13}"
-              maxLength={13}
-              value={citizenID}
+              autoComplete="off"
+              value={elderName}
               onChange={(e) => {
-                setCitizenID(e.target.value.replace(/[^\d]/g, ""));
+                setElderName(e.target.value);
                 setElderVerified(false);
                 setElderInfo(null);
                 setCheckError("");
+                setResultRow(null);
               }}
-              placeholder="กรอกเลขบัตร 13 หลัก"
+              placeholder="พิมพ์ชื่อ-นามสกุลให้ตรงกับฐานข้อมูล"
               className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <button
               onClick={checkElder}
-              disabled={citizenID.trim().length !== 13 || checking}
+              disabled={!elderName.trim() || checking}
               className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold"
             >
               {checking ? "กำลังตรวจสอบ..." : "ตรวจสอบ"}
@@ -215,14 +219,17 @@ function KneeOAScreeningForm() {
 
           {elderVerified && (
             <div className="mt-2 text-sm text-emerald-700">
-              ✅ พบเลขบัตรในฐานข้อมูล {elderInfo?.name ? `(${elderInfo.name})` : ""}
+              ✅ พบในฐานข้อมูล: {elderInfo?.name}
             </div>
           )}
           {!elderVerified && checkError && (
             <div className="mt-2 text-sm text-red-600">
               ⛔ {checkError}{" "}
-              <a href="/member/elderly/add" className="underline text-indigo-700 hover:text-indigo-900">
-                ไปเพิ่มข้อมูลผู้สูงอายุ
+              <a
+                href="/member/elderly/add"
+                className="underline text-indigo-700 hover:text-indigo-900"
+              >
+                ไปเพิ่มชื่อที่ฐานข้อมูล
               </a>
             </div>
           )}
@@ -233,7 +240,7 @@ function KneeOAScreeningForm() {
           className={`overflow-hidden rounded-xl border ${
             elderVerified ? "border-gray-200" : "border-gray-300"
           } ${elderVerified ? "" : "opacity-60 pointer-events-none"}`}
-          title={elderVerified ? "" : "ต้องตรวจสอบเลขบัตรก่อนจึงจะทำแบบประเมินได้"}
+          title={elderVerified ? "" : "ต้องตรวจสอบชื่อผู้สูงอายุก่อนจึงจะทำแบบประเมินได้"}
         >
           <table className="w-full table-fixed">
             <thead className="bg-gray-100 text-gray-700">
@@ -275,10 +282,12 @@ function KneeOAScreeningForm() {
           </table>
         </div>
 
-        {/* Error */}
-        {saveError && <div className="mt-3 text-sm text-red-600 text-center">{saveError}</div>}
+        {/* ข้อความผิดพลาด */}
+        {saveError && (
+          <div className="mt-3 text-sm text-red-600 text-center">{saveError}</div>
+        )}
 
-        {/* Actions */}
+        {/* ปุ่ม */}
         <div className="mt-6 flex justify-center gap-4">
           <button
             onClick={reset}
@@ -291,9 +300,33 @@ function KneeOAScreeningForm() {
             disabled={!elderVerified || !allAnswered || saving}
             className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold"
           >
-            {saving ? "กำลังบันทึก..." : "บันทึก & ดูผลการประเมิน"}
+            {saving ? "กำลังบันทึก..." : "บันทึก & ดูผลลัพธ์"}
           </button>
         </div>
+
+        {/* NEW: การ์ดแสดงผลที่อ่านกลับมาจากฐานข้อมูล */}
+        {resultRow && (
+          <div className="mt-8 p-5 rounded-xl border shadow-sm bg-gray-50">
+            <h2 className="text-xl font-semibold text-gray-800 mb-3">ผลการประเมินล่าสุด</h2>
+            <p className="text-gray-700">
+              <span className="font-medium">ชื่อผู้ถูกประเมิน:</span> {resultRow.elderlyName || elderInfo?.name}
+            </p>
+            <p className="text-gray-700 mt-1">
+              <span className="font-medium">ผลการประเมิน:</span> {resultRow.as_results}
+              {typeof resultRow.as_score === "number" && (
+                <span className="ml-2 text-sm text-gray-500">(คะแนน {resultRow.as_score})</span>
+              )}
+            </p>
+            <div className="mt-4">
+              <a
+                href={`/member/assessment/result?assessmentId=${encodeURIComponent(resultRow.assessmentID || "")}`}
+                className="inline-block px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium"
+              >
+                เปิดหน้าแสดงผลแบบเต็ม
+              </a>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
