@@ -1,13 +1,13 @@
-// app/member/assessment/page.jsx  (หรือไฟล์ที่เป็นหน้าทำแบบประเมินของคุณ)
+// app/member/assessment/page.jsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/api";
-const CHECK_ELDER_ENDPOINT = `${API_BASE}/elderly/exists`;
-const SAVE_ASSESSMENT_ENDPOINT = `${API_BASE}/assessment`;               // healthassessment
-const SAVE_RESULTS_ENDPOINT = `${API_BASE}/assessment_results`;          // assessmentresults
+const CHECK_ELDER_ENDPOINT = `${API_BASE}/elderly/exists`; // เปลี่ยนมาเช็ก citizenID
+const SAVE_ASSESSMENT_ENDPOINT = `${API_BASE}/assessment`;
+const SAVE_RESULTS_ENDPOINT = `${API_BASE}/assessment_results`;
 
 const QUESTIONS = [
   { id: "stiffness",        th: "ข้อเข่าฝืดตอนเช้าน้อยกว่า 30 นาที" },
@@ -17,13 +17,39 @@ const QUESTIONS = [
   { id: "noWarmth",         th: "ไม่พบข้ออุ่น" },
 ];
 
+/* ===== Parent: มี mounted gate + skeleton ===== */
 export default function KneeOAScreeningPage() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6 bg-gray-50">
+        <div className="w-full max-w-3xl bg-white rounded-2xl shadow-lg border border-gray-200 p-8 animate-pulse">
+          <div className="h-6 bg-gray-200 rounded w-1/2 mx-auto mb-6"></div>
+          <div className="h-4 bg-gray-200 rounded w-2/3 mb-4"></div>
+          <div className="h-4 bg-gray-200 rounded w-1/3 mb-4"></div>
+          <div className="space-y-3">
+            <div className="h-4 bg-gray-200 rounded"></div>
+            <div className="h-4 bg-gray-200 rounded"></div>
+            <div className="h-4 bg-gray-200 rounded"></div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return <KneeOAScreeningForm />;
+}
+
+/* ===== Child: logic + hooks ทั้งหมด ===== */
+function KneeOAScreeningForm() {
   const router = useRouter();
 
-  // --- Elderly ---
-  const [elderName, setElderName] = useState("");
+  // --- Elderly (ใช้ citizenID) ---
+  const [citizenID, setCitizenID] = useState("");
   const [elderVerified, setElderVerified] = useState(false);
-  const [elderInfo, setElderInfo] = useState(null); // { elderlyID, name }
+  const [elderInfo, setElderInfo] = useState(null); // { elderlyID, citizenID, name? }
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState("");
 
@@ -43,7 +69,6 @@ export default function KneeOAScreeningPage() {
     [answers]
   );
 
-  // คงไว้เพื่อส่งให้ backend (แต่ "ไม่แสดง" บนหน้านี้)
   const resultText = useMemo(() => {
     if (!elderVerified || !allAnswered) return "";
     return yesCount >= 2
@@ -51,9 +76,9 @@ export default function KneeOAScreeningPage() {
       : "ไม่เป็นโรคข้อเข่าเสื่อมตามเกณฑ์นี้";
   }, [elderVerified, allAnswered, yesCount]);
 
-  const handleChange = (id, value) => {
+  const handleChange = (id, value) =>
     setAnswers(prev => ({ ...prev, [id]: value }));
-  };
+
   const reset = () => {
     setAnswers(Object.fromEntries(QUESTIONS.map(q => [q.id, null])));
     setSaveError("");
@@ -66,14 +91,19 @@ export default function KneeOAScreeningPage() {
     setCheckError("");
 
     try {
-      const url = `${CHECK_ELDER_ENDPOINT}?name=${encodeURIComponent(elderName.trim())}`;
+      const url = `${CHECK_ELDER_ENDPOINT}?citizenID=${encodeURIComponent(citizenID.trim())}`;
       const res = await fetch(url, { cache: "no-store" });
       const data = await res.json();
+
       if (data?.exists) {
         setElderVerified(true);
-        setElderInfo({ elderlyID: data.elderlyID, name: data.name || elderName.trim() });
+        setElderInfo({
+          elderlyID: data.elderlyID,
+          citizenID: data.citizenID,
+          name: data.name ?? "",
+        });
       } else {
-        setCheckError("ไม่พบชื่อผู้สูงอายุในฐานข้อมูล กรุณาเพิ่มชื่อก่อนทำแบบประเมิน");
+        setCheckError("ไม่พบเลขบัตรนี้ในฐานข้อมูล กรุณาเพิ่มข้อมูลก่อนทำแบบประเมิน");
       }
     } catch {
       setCheckError("เกิดข้อผิดพลาดระหว่างตรวจสอบ");
@@ -82,12 +112,11 @@ export default function KneeOAScreeningPage() {
     }
   };
 
-  // บันทึก 2 ขั้นตอน แล้ว "ไปหน้าแสดงผล"
   const submitAssessment = async () => {
     setSaveError("");
 
     if (!elderVerified) {
-      setSaveError("ต้องตรวจสอบชื่อผู้สูงอายุให้ผ่านก่อน");
+      setSaveError("ต้องตรวจสอบเลขบัตรประชาชนให้ผ่านก่อน");
       return;
     }
     if (!allAnswered) {
@@ -97,7 +126,7 @@ export default function KneeOAScreeningPage() {
 
     setSaving(true);
     try {
-      // 1) บันทึก healthassessment
+      // 1) healthassessment
       const payloadAssessment = {
         elderlyID: elderInfo.elderlyID,
         stiffness:       answers.stiffness === "yes" ? 1 : 0,
@@ -121,7 +150,7 @@ export default function KneeOAScreeningPage() {
       const yesFromServer = data1.yesCount ?? yesCount;
       const textFromServer = data1.resultText ?? resultText;
 
-      // 2) บันทึก assessmentresults
+      // 2) assessmentresults
       const payloadResults = {
         assessmentID,
         elderlyID: elderInfo.elderlyID,
@@ -139,7 +168,6 @@ export default function KneeOAScreeningPage() {
         throw new Error(err?.message || "บันทึกผลสรุปไม่สำเร็จ");
       }
 
-      // ⮕ ไปหน้าแสดงผลเท่านั้น (หน้านี้ไม่โชว์ผล)
       router.push(`/member/assessment/result?assessmentId=${assessmentID}`);
     } catch (e) {
       setSaveError(e.message || "เกิดข้อผิดพลาดในการบันทึก");
@@ -155,27 +183,30 @@ export default function KneeOAScreeningPage() {
           แบบประเมินคัดกรองโรคข้อเข่าเสื่อม
         </h1>
 
-        {/* ผู้สูงอายุ */}
+        {/* เลขบัตรประชาชน */}
         <div className="mb-5">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            ชื่อผู้สูงอายุ <span className="text-red-600">*</span>
+            เลขบัตรประชาชน <span className="text-red-600">*</span>
           </label>
           <div className="flex gap-2">
             <input
               type="text"
-              value={elderName}
+              inputMode="numeric"
+              pattern="\d{13}"
+              maxLength={13}
+              value={citizenID}
               onChange={(e) => {
-                setElderName(e.target.value);
+                setCitizenID(e.target.value.replace(/[^\d]/g, ""));
                 setElderVerified(false);
                 setElderInfo(null);
                 setCheckError("");
               }}
-              placeholder="พิมพ์ชื่อ-นามสกุลให้ตรงกับฐานข้อมูล"
+              placeholder="กรอกเลขบัตร 13 หลัก"
               className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <button
               onClick={checkElder}
-              disabled={!elderName.trim() || checking}
+              disabled={citizenID.trim().length !== 13 || checking}
               className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold"
             >
               {checking ? "กำลังตรวจสอบ..." : "ตรวจสอบ"}
@@ -184,14 +215,14 @@ export default function KneeOAScreeningPage() {
 
           {elderVerified && (
             <div className="mt-2 text-sm text-emerald-700">
-              ✅ พบในฐานข้อมูล: {elderInfo?.name}
+              ✅ พบเลขบัตรในฐานข้อมูล {elderInfo?.name ? `(${elderInfo.name})` : ""}
             </div>
           )}
           {!elderVerified && checkError && (
             <div className="mt-2 text-sm text-red-600">
               ⛔ {checkError}{" "}
               <a href="/member/elderly/add" className="underline text-indigo-700 hover:text-indigo-900">
-                ไปเพิ่มชื่อที่ฐานข้อมูล
+                ไปเพิ่มข้อมูลผู้สูงอายุ
               </a>
             </div>
           )}
@@ -202,7 +233,7 @@ export default function KneeOAScreeningPage() {
           className={`overflow-hidden rounded-xl border ${
             elderVerified ? "border-gray-200" : "border-gray-300"
           } ${elderVerified ? "" : "opacity-60 pointer-events-none"}`}
-          title={elderVerified ? "" : "ต้องตรวจสอบชื่อผู้สูงอายุก่อนจึงจะทำแบบประเมินได้"}
+          title={elderVerified ? "" : "ต้องตรวจสอบเลขบัตรก่อนจึงจะทำแบบประเมินได้"}
         >
           <table className="w-full table-fixed">
             <thead className="bg-gray-100 text-gray-700">
@@ -244,10 +275,10 @@ export default function KneeOAScreeningPage() {
           </table>
         </div>
 
-        {/* ข้อความผิดพลาด */}
+        {/* Error */}
         {saveError && <div className="mt-3 text-sm text-red-600 text-center">{saveError}</div>}
 
-        {/* ปุ่มเท่านั้น (ไม่แสดงผลสรุปในหน้านี้) */}
+        {/* Actions */}
         <div className="mt-6 flex justify-center gap-4">
           <button
             onClick={reset}

@@ -5,15 +5,19 @@ import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
 export default function AssessmentResultPage() {
-  const sp = useSearchParams();
-  const assessmentId = sp.get("assessmentId");
+  const sp = useSearchParams(); // ✅ บนสุด
+  const assessmentId = (sp.get("assessmentId") || "").toUpperCase();
 
   const [loading, setLoading] = useState(true);
   const [row, setRow] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!assessmentId) return;
+    if (!assessmentId) {
+      setError("ไม่พบรหัสผลการประเมิน");
+      setLoading(false);
+      return;
+    }
     (async () => {
       try {
         setLoading(true);
@@ -21,11 +25,11 @@ export default function AssessmentResultPage() {
         const res = await fetch(`/api/assessment_results/${assessmentId}`, {
           cache: "no-store",
         });
-        if (!res.ok) throw new Error("โหลดข้อมูลไม่สำเร็จ");
-        const data = await res.json();
-        setRow(data);
+        const json = await res.json();
+        if (!res.ok) throw new Error(json?.message || "โหลดข้อมูลไม่สำเร็จ");
+        setRow(json?.data ?? null);
       } catch (e) {
-        setError(String(e));
+        setError(e.message || String(e));
       } finally {
         setLoading(false);
       }
@@ -33,30 +37,22 @@ export default function AssessmentResultPage() {
   }, [assessmentId]);
 
   if (loading) return <div className="p-6">กำลังโหลด...</div>;
-  if (error) return <div className="p-6 text-red-600">{error}</div>;
+  if (error)   return <div className="p-6 text-red-600">Error: {error}</div>;
 
-  // ดึงเฉพาะ data
-  const result = row?.data;
+  const name = row?.elderlyName || "-";
+  const resultText = row?.resultText ?? row?.as_results ?? "-";
 
   return (
-    <div className="min-h-screen flex items-center justify-center  p-6">
+    <div className="min-h-screen flex items-center justify-center p-6">
       <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-lg text-center">
         <h1 className="text-2xl font-bold mb-6 text-gray-800">ผลการประเมิน</h1>
 
-        {result ? (
-          <>
-            <p className="text-lg text-gray-700 mb-4">
-              <span className="font-semibold">ชื่อผู้ถูกประเมิน:</span>{" "}
-              {result.elderlyName}
-            </p>
-            <p className="text-lg text-gray-700 mb-4">
-              <span className="font-semibold">ผลการประเมิน:</span>{" "}
-              {result.as_results}
-            </p>
-          </>
-        ) : (
-          <p className="text-gray-500">ไม่พบผลการประเมิน</p>
-        )}
+        <p className="text-lg text-gray-700 mb-4">
+          <span className="font-semibold">ชื่อผู้ถูกประเมิน:</span> {name}
+        </p>
+        <p className="text-lg text-gray-700 mb-4">
+          <span className="font-semibold">ผลการประเมิน:</span> {resultText}
+        </p>
 
         <a
           href="/member/assessment"
