@@ -1,86 +1,65 @@
-import { connectDB } from '@/lib/db'
 import { NextResponse } from 'next/server'
+import { connectDB } from '@/lib/db'
 
-// helper: ดึง id จาก params (Next15: params เป็น Promise)
-async function getId(context) {
-  const { id } = await context.params
-  const elderlyID = Number(id)
-  if (!Number.isFinite(elderlyID)) {
-    throw new Error('invalid id')
-  }
-  return elderlyID
-}
-
-// GET /api/elderly/:id
-export async function GET(_req, context) {
+// ---------- GET /api/elderly/[id] ----------
+export async function GET(_req, { params }) {
   try {
-    const elderlyID = await getId(context)
-
-    const db = await connectDB()
+    const elderlyID = params.id;          // ใช้เป็นสตริงตรง ๆ (เช่น ELD002)
+    const db = await connectDB();
     const [rows] = await db.execute(
       `
       SELECT
         elderlyID  AS id,
         userID     AS userId,
         name,
-        phonNumber,
+        phonNumber AS phoneNumber,
         citizenID,
         birthDate,
-        TIMESTAMPDIFF(YEAR, birthDate, CURDATE()) AS ageYears,
         gender,
         address, subdistrict, district, province,
-        latitude, longitude
+        latlong    AS latitude          -- ← ใช้คอลัมน์ latlong แล้ว map ชื่อส่งกลับเป็น latitude
       FROM elderly
       WHERE elderlyID = ?
       `,
       [elderlyID]
-    )
+    );
 
     if (!rows.length) {
-      return NextResponse.json({ error: 'ไม่พบข้อมูล' }, { status: 404 })
+      return NextResponse.json({ error: 'ไม่พบข้อมูล' }, { status: 404 });
     }
-    return NextResponse.json({ ok: true, data: rows[0] })
-  } catch (error) {
-    if (error.message === 'invalid id') {
-      return NextResponse.json({ error: 'invalid id' }, { status: 400 })
-    }
-    console.error('API GET /api/elderly/:id error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
-      { status: 500 }
-    )
+    return NextResponse.json(rows[0]);
+  } catch (e) {
+    console.error('GET elderly error:', e);
+    return NextResponse.json({ error: 'server error' }, { status: 500 });
   }
 }
 
-// PUT /api/elderly/:id
-export async function PUT(req, context) {
+// ---------- PUT /api/elderly/[id] ----------
+export async function PUT(req, { params }) {
   try {
-    const elderlyID = await getId(context)
-    const body = await req.json()
-    const phoneValue = (body.phone ?? body.phonNumber) ?? null
+    const elderlyID = params.id;
+    const body = await req.json();
+    const db = await connectDB();
 
-    const db = await connectDB()
+    // ไม่อัปเดต userID เพื่อหลีกเลี่ยงชน FK
     await db.execute(
       `
       UPDATE elderly SET
-        userID = ?,
-        name = ?,
-        phonNumber = ?,
-        citizenID = ?,
-        birthDate = ?,
-        gender = ?,
-        address = ?,
-        subdistrict = ?,
-        district = ?,
-        province = ?,
-        latitude = ?,
-        longitude = ?
-      WHERE elderlyID = ?
+        name=?,
+        phonNumber=?,
+        citizenID=?,
+        birthDate=?,
+        gender=?,
+        address=?,
+        subdistrict=?,
+        district=?,
+        province=?,
+        latlong=?                     -- ← อัปเดตลงคอลัมน์ latlong เพียงคอลัมน์เดียว
+      WHERE elderlyID=?
       `,
       [
-        body.userId ?? null,
         body.name ?? null,
-        phoneValue,
+        body.phone ?? body.phoneNumber ?? null,
         body.citizenID ?? null,
         body.birthDate ?? null,
         body.gender ?? null,
@@ -88,42 +67,14 @@ export async function PUT(req, context) {
         body.subdistrict ?? null,
         body.district ?? null,
         body.province ?? null,
-        body.latitude ?? null,
-        body.longitude ?? null,
-        elderlyID,
+        body.latitude ?? null,        // ← ฟอร์มยังส่งมาในชื่อ latitude (เช่น "14.999999,103.000000")
+        elderlyID
       ]
-    )
+    );
 
-    return NextResponse.json({ ok: true, message: 'Elderly updated' })
-  } catch (error) {
-    if (error.message === 'invalid id') {
-      return NextResponse.json({ error: 'invalid id' }, { status: 400 })
-    }
-    console.error('API PUT /api/elderly/:id error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
-      { status: 500 }
-    )
-  }
-}
-
-// DELETE /api/elderly/:id
-export async function DELETE(_req, context) {
-  try {
-    const elderlyID = await getId(context)
-
-    const db = await connectDB()
-    await db.execute(`DELETE FROM elderly WHERE elderlyID = ?`, [elderlyID])
-
-    return NextResponse.json({ ok: true, message: 'Elderly deleted' })
-  } catch (error) {
-    if (error.message === 'invalid id') {
-      return NextResponse.json({ error: 'invalid id' }, { status: 400 })
-    }
-    console.error('API DELETE /api/elderly/:id error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
-      { status: 500 }
-    )
+    return NextResponse.json({ ok: true });
+  } catch (e) {
+    console.error('PUT elderly error:', e);
+    return NextResponse.json({ error: 'อัปเดตไม่สำเร็จ' }, { status: 500 });
   }
 }
