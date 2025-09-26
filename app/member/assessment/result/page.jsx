@@ -1,6 +1,5 @@
 // app/member/assessment/result/page.jsx
 "use client";
-
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -13,12 +12,12 @@ export default function AssessmentResultPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    if (!assessmentId) return;
+    if (!assessmentId) { setLoading(false); return; }
     (async () => {
       try {
         setLoading(true);
         setError("");
-        const res = await fetch(`/api/assessment_results/${assessmentId}`, {
+        const res = await fetch(`/api/assessment_results/${encodeURIComponent(assessmentId)}`, {
           cache: "no-store",
         });
         if (!res.ok) throw new Error("โหลดข้อมูลไม่สำเร็จ");
@@ -32,14 +31,14 @@ export default function AssessmentResultPage() {
     })();
   }, [assessmentId]);
 
+  if (!assessmentId) return <div className="p-6 text-gray-600">ไม่พบพารามิเตอร์ assessmentId</div>;
   if (loading) return <div className="p-6">กำลังโหลด...</div>;
   if (error) return <div className="p-6 text-red-600">{error}</div>;
 
-  // ดึงเฉพาะ data
   const result = row?.data;
 
   return (
-    <div className="min-h-screen flex items-center justify-center  p-6">
+    <div className="min-h-screen flex items-center justify-center p-6">
       <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-lg text-center">
         <h1 className="text-2xl font-bold mb-6 text-gray-800">ผลการประเมิน</h1>
 

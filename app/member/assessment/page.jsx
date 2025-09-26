@@ -1,13 +1,14 @@
-// app/member/assessment/page.jsx  (หรือไฟล์ที่เป็นหน้าทำแบบประเมินของคุณ)
+// app/member/assessment/page.jsx
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/api";
 const CHECK_ELDER_ENDPOINT = `${API_BASE}/elderly/exists`;
 const SAVE_ASSESSMENT_ENDPOINT = `${API_BASE}/assessment`;               // healthassessment
 const SAVE_RESULTS_ENDPOINT = `${API_BASE}/assessment_results`;          // assessmentresults
+const GET_RESULT_ENDPOINT = (id) => `${API_BASE}/assessment_results/${encodeURIComponent(id)}`;
 
 const QUESTIONS = [
   { id: "stiffness",        th: "ข้อเข่าฝืดตอนเช้าน้อยกว่า 30 นาที" },
@@ -20,30 +21,38 @@ const QUESTIONS = [
 export default function KneeOAScreeningPage() {
   const router = useRouter();
 
-  // --- Elderly ---
+  // ---------- เรียก hooks ให้ครบทุก render ----------
+  const [mounted, setMounted] = useState(false);
+
+  // Elderly
   const [elderName, setElderName] = useState("");
   const [elderVerified, setElderVerified] = useState(false);
   const [elderInfo, setElderInfo] = useState(null); // { elderlyID, name }
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState("");
 
-  // --- Answers ---
-  const [answers, setAnswers] = useState(
-    Object.fromEntries(QUESTIONS.map(q => [q.id, null])) // "yes" | "no" | null
+  // Answers
+  const [answers, setAnswers] = useState(() =>
+    Object.fromEntries(QUESTIONS.map((q) => [q.id, null])) // "yes" | "no" | null
   );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
 
+  // NEW: เก็บผลที่อ่านกลับจากฐานข้อมูล
+  const [resultRow, setResultRow] = useState(null); // { elderlyName, as_results, as_score, ... }
+
+  useEffect(() => setMounted(true), []);
+  // ----------------------------------------------------
+
   const yesCount = useMemo(
-    () => Object.values(answers).filter(v => v === "yes").length,
+    () => Object.values(answers).filter((v) => v === "yes").length,
     [answers]
   );
   const allAnswered = useMemo(
-    () => Object.values(answers).every(v => v !== null),
+    () => Object.values(answers).every((v) => v !== null),
     [answers]
   );
 
-  // คงไว้เพื่อส่งให้ backend (แต่ "ไม่แสดง" บนหน้านี้)
   const resultText = useMemo(() => {
     if (!elderVerified || !allAnswered) return "";
     return yesCount >= 2
@@ -52,11 +61,13 @@ export default function KneeOAScreeningPage() {
   }, [elderVerified, allAnswered, yesCount]);
 
   const handleChange = (id, value) => {
-    setAnswers(prev => ({ ...prev, [id]: value }));
+    setAnswers((prev) => ({ ...prev, [id]: value }));
   };
+
   const reset = () => {
-    setAnswers(Object.fromEntries(QUESTIONS.map(q => [q.id, null])));
+    setAnswers(Object.fromEntries(QUESTIONS.map((q) => [q.id, null])));
     setSaveError("");
+    setResultRow(null);
   };
 
   const checkElder = async () => {
@@ -82,9 +93,9 @@ export default function KneeOAScreeningPage() {
     }
   };
 
-  // บันทึก 2 ขั้นตอน แล้ว "ไปหน้าแสดงผล"
   const submitAssessment = async () => {
     setSaveError("");
+    setResultRow(null);
 
     if (!elderVerified) {
       setSaveError("ต้องตรวจสอบชื่อผู้สูงอายุให้ผ่านก่อน");
@@ -123,7 +134,7 @@ export default function KneeOAScreeningPage() {
 
       // 2) บันทึก assessmentresults
       const payloadResults = {
-        assessmentID,
+        assessmentID, // ต้องตรงกับ healthassessment.assessmentID
         elderlyID: elderInfo.elderlyID,
         as_score: yesFromServer,
         as_results: textFromServer,
@@ -139,14 +150,36 @@ export default function KneeOAScreeningPage() {
         throw new Error(err?.message || "บันทึกผลสรุปไม่สำเร็จ");
       }
 
-      // ⮕ ไปหน้าแสดงผลเท่านั้น (หน้านี้ไม่โชว์ผล)
-      router.push(`/member/assessment/result?assessmentId=${assessmentID}`);
+      // 3) ดึงผลจากฐานข้อมูลที่เพิ่งบันทึกมาโชว์
+      const res3 = await fetch(GET_RESULT_ENDPOINT(assessmentID), { cache: "no-store" });
+      const data3 = await res3.json().catch(() => ({}));
+      if (res3.ok && data3?.data) {
+        setResultRow(data3.data); // { elderlyName, as_results, as_score, ... }
+      } else {
+        // ถ้าอ่านกลับไม่สำเร็จ ก็ยังพาไปหน้าผลได้
+        setResultRow({
+          elderlyName: elderInfo?.name ?? "",
+          as_results: textFromServer,
+          as_score: yesFromServer,
+        });
+      }
+
+      // ถ้าอยากไปหน้าแสดงผลเต็ม กดปุ่มได้ (ไม่ redirect อัตโนมัติ)
+      // router.push(`/member/assessment/result?assessmentId=${assessmentID}`);
     } catch (e) {
       setSaveError(e.message || "เกิดข้อผิดพลาดในการบันทึก");
     } finally {
       setSaving(false);
     }
   };
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        กำลังโหลด...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
@@ -160,15 +193,17 @@ export default function KneeOAScreeningPage() {
           <label className="block text-sm font-medium text-gray-700 mb-2">
             ชื่อผู้สูงอายุ <span className="text-red-600">*</span>
           </label>
-          <div className="flex gap-2">
+          <div className="flex gap-2" suppressHydrationWarning>
             <input
               type="text"
+              autoComplete="off"
               value={elderName}
               onChange={(e) => {
                 setElderName(e.target.value);
                 setElderVerified(false);
                 setElderInfo(null);
                 setCheckError("");
+                setResultRow(null);
               }}
               placeholder="พิมพ์ชื่อ-นามสกุลให้ตรงกับฐานข้อมูล"
               className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
@@ -190,7 +225,10 @@ export default function KneeOAScreeningPage() {
           {!elderVerified && checkError && (
             <div className="mt-2 text-sm text-red-600">
               ⛔ {checkError}{" "}
-              <a href="/member/elderly/add" className="underline text-indigo-700 hover:text-indigo-900">
+              <a
+                href="/member/elderly/add"
+                className="underline text-indigo-700 hover:text-indigo-900"
+              >
                 ไปเพิ่มชื่อที่ฐานข้อมูล
               </a>
             </div>
@@ -245,9 +283,11 @@ export default function KneeOAScreeningPage() {
         </div>
 
         {/* ข้อความผิดพลาด */}
-        {saveError && <div className="mt-3 text-sm text-red-600 text-center">{saveError}</div>}
+        {saveError && (
+          <div className="mt-3 text-sm text-red-600 text-center">{saveError}</div>
+        )}
 
-        {/* ปุ่มเท่านั้น (ไม่แสดงผลสรุปในหน้านี้) */}
+        {/* ปุ่ม */}
         <div className="mt-6 flex justify-center gap-4">
           <button
             onClick={reset}
@@ -260,9 +300,33 @@ export default function KneeOAScreeningPage() {
             disabled={!elderVerified || !allAnswered || saving}
             className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold"
           >
-            {saving ? "กำลังบันทึก..." : "บันทึก & ดูผลการประเมิน"}
+            {saving ? "กำลังบันทึก..." : "บันทึก & ดูผลลัพธ์"}
           </button>
         </div>
+
+        {/* NEW: การ์ดแสดงผลที่อ่านกลับมาจากฐานข้อมูล */}
+        {resultRow && (
+          <div className="mt-8 p-5 rounded-xl border shadow-sm bg-gray-50">
+            <h2 className="text-xl font-semibold text-gray-800 mb-3">ผลการประเมินล่าสุด</h2>
+            <p className="text-gray-700">
+              <span className="font-medium">ชื่อผู้ถูกประเมิน:</span> {resultRow.elderlyName || elderInfo?.name}
+            </p>
+            <p className="text-gray-700 mt-1">
+              <span className="font-medium">ผลการประเมิน:</span> {resultRow.as_results}
+              {typeof resultRow.as_score === "number" && (
+                <span className="ml-2 text-sm text-gray-500">(คะแนน {resultRow.as_score})</span>
+              )}
+            </p>
+            <div className="mt-4">
+              <a
+                href={`/member/assessment/result?assessmentId=${encodeURIComponent(resultRow.assessmentID || "")}`}
+                className="inline-block px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium"
+              >
+                เปิดหน้าแสดงผลแบบเต็ม
+              </a>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
