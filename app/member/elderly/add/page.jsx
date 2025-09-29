@@ -78,7 +78,7 @@ export default function AddElderlyMemberPage() {
         <header className="mb-6">
           <h1 className="text-3xl font-bold text-slate-900">เพิ่มข้อมูลผู้สูงอายุ (Member)</h1>
           <p className="mt-1 text-slate-600 text-sm">
-            กรอกข้อมูลให้ครบถ้วน โดยเฉพาะช่องที่มีเครื่องหมาย <span className="text-red-500">*</span>
+            กรอกข้อมูลให้ครบถ้วน และถูกต้อง <span className="text-red-500">*</span>
           </p>
         </header>
 
@@ -232,7 +232,8 @@ export default function AddElderlyMemberPage() {
               <h2 className={sectionTitle}>พิกัด</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className={label}>ละติจูด-ลองจิจูด</label>
+                  <label className={label}>ละติจูด-ลองจิจูด<span className="text-red-500">*</span>
+                  </label>
                   <input
                     name="latitude"
                     placeholder="เช่น 14.999999,103.000000"

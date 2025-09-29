@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
 
-// GET /api/elderly?search=...&page=1&pageSize=20
+// ---------- GET /api/elderly ----------
 export async function GET(req) {
   try {
     const db = await connectDB()
@@ -45,7 +45,7 @@ export async function GET(req) {
         gender,
         address,
         subdistrict, district, province,
-        latitude, longitude
+        latlong AS latitude           -- ✅ ใช้ latlong แล้ว map ชื่อเป็น latitude ให้ฝั่งหน้า
       FROM elderly
       ${whereSql}
       ORDER BY elderlyID ASC
@@ -71,7 +71,7 @@ export async function GET(req) {
   }
 }
 
-// POST /api/elderly (unchanged)
+// ---------- POST /api/elderly ----------
 export async function POST(req) {
   try {
     const db = await connectDB()
@@ -89,7 +89,7 @@ export async function POST(req) {
     const body = await req.json()
     const {
       name, birthDate, gender, address, subdistrict, district, province,
-      citizenID = null, phone, phonNumber, phoneNumber, latitude = null, longitude = null,
+      citizenID = null, phone, phonNumber, phoneNumber, latitude = null, /* longitude = null, */
     } = body || {}
 
     const required = { name, birthDate, gender, address, subdistrict, district, province }
@@ -105,11 +105,13 @@ export async function POST(req) {
       `
       INSERT INTO elderly
         (userID, name, phonNumber, citizenID, birthDate, gender,
-         address, subdistrict, district, province, latitude, longitude)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         address, subdistrict, district, province, latlong)   -- ✅ ใช้ latlong
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
-      [userId, name, phoneValue, citizenID, birthDate, gender,
-       address, subdistrict, district, province, latitude, longitude]
+      [
+        userId, name, phoneValue, citizenID, birthDate, gender,
+        address, subdistrict, district, province, latitude       // ✅ latitude = "lat,long"
+      ]
     )
 
     return NextResponse.json({ message: 'Elderly created' }, { status: 201 })

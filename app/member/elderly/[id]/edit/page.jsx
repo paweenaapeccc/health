@@ -194,22 +194,17 @@ export default function EditElderlyPage() {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className={label}>ละติจูด</label>
-              <input
-                name="latitude"
-                value={formData.latitude}
-                onChange={handleChange}
-                className={input}
-              />
-            </div>
-            <div>
-              <label className={label}>ลองจิจูด</label>
-              <input
-                name="longitude"
-                value={formData.longitude}
-                onChange={handleChange}
-                className={input}
-              />
+             <label className={label}>ละติจูด-ลองจิจูด
+                  </label>
+                  <input
+                    name="latitude"
+                    placeholder="เช่น 14.999999,103.000000"
+                    className={input}
+                    inputMode="decimal"
+                    value={formData.latitude}
+                    onChange={handleChange}
+                    {...antiAutofill}
+                  />
             </div>
           </div>
 

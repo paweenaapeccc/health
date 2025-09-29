@@ -6,7 +6,7 @@ import { useRouter, useParams } from 'next/navigation'
 export default function EditElderlyPage() {
   const router = useRouter()
   const params = useParams()
-  const id = params?.id
+  const id = params?.id   // มาจาก [id]
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -26,6 +26,7 @@ export default function EditElderlyPage() {
 
   // โหลดข้อมูลเดิม
   useEffect(() => {
+    if (!id) return
     const load = async () => {
       try {
         const res = await fetch(`/api/elderly/${id}`)
@@ -46,12 +47,12 @@ export default function EditElderlyPage() {
         })
       } catch (err) {
         alert('ไม่สามารถโหลดข้อมูลได้')
-        router.push('/member/elderly')
+        router.push('/admin/elderly')
       } finally {
         setLoading(false)
       }
     }
-    if (id) load()
+    load()
   }, [id, router])
 
   const handleChange = (e) => {
@@ -72,7 +73,7 @@ export default function EditElderlyPage() {
       })
       if (res.ok) {
         alert('อัปเดตข้อมูลสำเร็จ')
-        router.push('/member/elderly')
+        router.push('/admin/elderly')
       } else {
         const data = await res.json().catch(() => ({}))
         alert(data?.error || 'เกิดข้อผิดพลาด')
@@ -82,13 +83,14 @@ export default function EditElderlyPage() {
     }
   }
 
-  if (loading) {
-    return <div className="p-6">กำลังโหลดข้อมูล…</div>
-  }
+  if (loading) return <div className="p-6">กำลังโหลดข้อมูล…</div>
 
   const label = 'text-sm font-medium text-slate-700'
   const input =
     'w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
+
+  // ✅ เพิ่มเฉพาะนี้
+  const antiAutofill = { autoComplete: 'off' }
 
   return (
     <div className="">
@@ -193,30 +195,24 @@ export default function EditElderlyPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className={label}>ละติจูด</label>
-              <input
-                name="latitude"
-                value={formData.latitude}
-                onChange={handleChange}
-                className={input}
-              />
-            </div>
-            <div>
-              <label className={label}>ลองจิจูด</label>
-              <input
-                name="longitude"
-                value={formData.longitude}
-                onChange={handleChange}
-                className={input}
-              />
-            </div>
+                <div>
+                  <label className={label}>ละติจูด-ลองจิจูด</label>
+                  <input
+                    name="latitude"
+                    placeholder="เช่น 14.999999,103.000000"
+                    className={input}
+                    inputMode="decimal"
+                    value={formData.latitude}
+                    onChange={handleChange}
+                    {...antiAutofill}
+                  />
+                </div>
           </div>
 
           <div className="flex gap-3 pt-4">
             <button
               type="button"
-              onClick={() => router.push('/member/elderly')}
+              onClick={() => router.push('/admin/elderly')}
               className="px-5 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition cursor-pointer"
             >
               ยกเลิก

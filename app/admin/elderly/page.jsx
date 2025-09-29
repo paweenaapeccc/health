@@ -94,7 +94,7 @@ export default function MemberElderlyPage() {
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-gray-800">ผู้สูงอายุ (Member)</h1>
           <Link
-            href="/member/elderly/add"
+            href="/admin/elderly/add"
             className="px-4 py-2 rounded-lg bg-blue-600 text-white shadow hover:bg-blue-700 transition cursor-pointer" 
           >
             + เพิ่มข้อมูล
@@ -167,7 +167,7 @@ export default function MemberElderlyPage() {
                       <td className="p-3">
                         <div className="flex gap-2">
                           <Link
-                            href={`/member/elderly/${encodeURIComponent(id)}/edit`}
+                            href={`/admin/elderly/${encodeURIComponent(id)}/edit`}
                             className="px-3 py-1.5 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 transition"
                           >
                             แก้ไข
