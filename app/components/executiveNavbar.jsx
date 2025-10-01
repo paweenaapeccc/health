@@ -27,7 +27,6 @@ function ExecutiveNavbar() {
         setRole('')
       }
     }
-
     checkSession()
   }, [pathname])
 
@@ -71,9 +70,9 @@ function ExecutiveNavbar() {
           {isLoggedIn && role === 'executive' && (
             <li>
               <Link
-                href="/executive"
+                href="/executive/osteo_analysis"
                 className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                  pathname.startsWith('/executive')
+                  pathname.startsWith('/executive/osteo_analysis')
                     ? 'bg-blue-200 text-blue-800 font-semibold'
                     : 'text-gray-700 hover:bg-blue-100'
                 }`}
@@ -101,7 +100,7 @@ function ExecutiveNavbar() {
           {/* แสดงชื่อผู้ใช้ */}
           {isLoggedIn && (
             <li className="text-sm text-gray-800 dark:text-gray-200">
-              สวัสดี, {username} 
+              สวัสดี, {username}
             </li>
           )}
 
@@ -130,7 +129,7 @@ function ExecutiveNavbar() {
         </ul>
       </div>
     </nav>
-  );
+  )
 }
 
-export default ExecutiveNavbar;
+export default ExecutiveNavbar
