@@ -1,47 +1,52 @@
-'use client'
+'use client';
 
-import Link from 'next/link'
-import Image from 'next/image'
-import { usePathname, useRouter } from 'next/navigation'
-import { Home, LogIn, LogOut, Info } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname, useRouter } from 'next/navigation';
+import { Home, LogIn, LogOut, Info, MapPin } from 'lucide-react';
+import { useEffect, useState } from 'react';
 
-function ExecutiveNavbar() {
-  const pathname = usePathname()
-  const router = useRouter()
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
-  const [username, setUsername] = useState('')
-  const [role, setRole] = useState('')
+export default function ExecutiveNavbar() {
+  const pathname = usePathname();
+  const router = useRouter();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [username, setUsername] = useState('');
+  const [role, setRole] = useState('');
 
+  // โหลด session
   useEffect(() => {
-    const checkSession = async () => {
+    (async () => {
       try {
-        const res = await fetch('/api/session', { cache: 'no-store' })
-        const data = await res.json()
-        setIsLoggedIn(data.isLoggedIn)
-        setUsername(data.username || '')
-        setRole(data.role || '')
+        const res = await fetch('/api/session', { cache: 'no-store' });
+        const data = await res.json();
+        setIsLoggedIn(!!data.isLoggedIn);
+        setUsername(data.username || '');
+        setRole(data.role || '');
       } catch {
-        setIsLoggedIn(false)
-        setUsername('')
-        setRole('')
+        setIsLoggedIn(false);
+        setUsername('');
+        setRole('');
       }
-    }
-    checkSession()
-  }, [pathname])
+    })();
+  }, [pathname]);
 
   const handleLogout = async () => {
-    await fetch('/api/logout', { method: 'POST', cache: 'no-store' })
-    setIsLoggedIn(false)
-    setUsername('')
-    setRole('')
-    router.replace('/login')
-  }
+    await fetch('/api/logout', { method: 'POST', cache: 'no-store' });
+    setIsLoggedIn(false);
+    setUsername('');
+    setRole('');
+    router.replace('/login'); // ✅ ใช้ string path ชัดเจน
+  };
+
+  const itemClass = (active) =>
+    `flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
+      active ? 'bg-blue-200 text-blue-800 font-semibold' : 'text-gray-700 hover:bg-blue-100'
+    }`;
 
   return (
     <nav className="py-4 sticky top-0 z-50" style={{ backgroundColor: '#33CCCC' }}>
       <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
-        {/* Logo & System Name */}
+        {/* Logo */}
         <div className="flex items-center gap-2">
           <Image src="/logo.jpeg" alt="Logo" width={40} height={40} />
           <span className="font-semibold text-lg text-black">
@@ -49,34 +54,30 @@ function ExecutiveNavbar() {
           </span>
         </div>
 
-        {/* Navigation Items */}
+        {/* เมนู */}
         <ul className="flex items-center space-x-6">
           {/* หน้าหลัก */}
           <li>
-            <Link
-              href="/executive"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                pathname === '/executive'
-                  ? 'bg-blue-200 text-blue-800 font-semibold'
-                  : 'text-gray-700 hover:bg-blue-100'
-              }`}
-            >
+            <Link href="/executive" className={itemClass(pathname === '/executive')}>
               <Home size={20} />
               <span>หน้าหลัก</span>
             </Link>
           </li>
 
-          {/* เมนู executive */}
+          {/* แผนที่ (เฉพาะ executive) */}
           {isLoggedIn && role === 'executive' && (
             <li>
-              <Link
-                href="/executive/oa_risk"
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                  pathname.startsWith('/executive/oa_risk')
-                    ? 'bg-blue-200 text-blue-800 font-semibold'
-                    : 'text-gray-700 hover:bg-blue-100'
-                }`}
-              >
+              <Link href="/executive/map" className={itemClass(pathname.startsWith('/executive/map'))}>
+                <MapPin size={20} />
+                <span>แผนที่</span>
+              </Link>
+            </li>
+          )}
+
+          {/* วิเคราะห์ข้อมูล (เฉพาะ executive) */}
+          {isLoggedIn && role === 'executive' && (
+            <li>
+              <Link href="/executive/oa_risk" className={itemClass(pathname.startsWith('/executive/oa_risk'))}>
                 <span>วิเคราะห์ข้อมูล</span>
               </Link>
             </li>
@@ -84,27 +85,16 @@ function ExecutiveNavbar() {
 
           {/* เกี่ยวกับเรา */}
           <li>
-            <Link
-              href="/about"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                pathname === '/about'
-                  ? 'bg-blue-200 text-blue-800 font-semibold'
-                  : 'text-gray-700 hover:bg-blue-100'
-              }`}
-            >
+            <Link href="/about" className={itemClass(pathname === '/about')}>
               <Info size={20} />
               <span>เกี่ยวกับเรา</span>
             </Link>
           </li>
 
           {/* แสดงชื่อผู้ใช้ */}
-          {isLoggedIn && (
-            <li className="text-sm text-gray-800 dark:text-gray-200">
-              สวัสดี, {username}
-            </li>
-          )}
+          {isLoggedIn && <li className="text-sm text-gray-800">สวัสดี, {username}</li>}
 
-          {/* เข้าสู่ระบบ / ออกจากระบบ */}
+          {/* ปุ่ม login/logout */}
           {!isLoggedIn ? (
             <li>
               <Link
@@ -118,6 +108,7 @@ function ExecutiveNavbar() {
           ) : (
             <li>
               <button
+                type="button"
                 onClick={handleLogout}
                 className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700"
               >
@@ -129,7 +120,5 @@ function ExecutiveNavbar() {
         </ul>
       </div>
     </nav>
-  )
+  );
 }
-
-export default ExecutiveNavbar
