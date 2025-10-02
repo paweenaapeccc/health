@@ -70,9 +70,9 @@ function ExecutiveNavbar() {
           {isLoggedIn && role === 'executive' && (
             <li>
               <Link
-                href="/executive/osteo_analysis"
+                href="/executive/oa_risk"
                 className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                  pathname.startsWith('/executive/osteo_analysis')
+                  pathname.startsWith('/executive/oa_risk')
                     ? 'bg-blue-200 text-blue-800 font-semibold'
                     : 'text-gray-700 hover:bg-blue-100'
                 }`}
