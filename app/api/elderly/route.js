@@ -13,7 +13,9 @@ export async function GET(req) {
     const pageSize = Math.min(Math.max(parseInt(url.searchParams.get('pageSize') || '20', 10), 1), 100)
     const offset = (page - 1) * pageSize
 
-    const where = []
+    // --- ⭐️ จุดที่แก้ไข ---
+    // กำหนดให้กรองข้อมูลที่ยังไม่ถูกลบออกเป็นเงื่อนไขพื้นฐานเสมอ
+    const where = ['deleted_at IS NULL'] 
     const params = []
 
     if (search) {
@@ -24,6 +26,8 @@ export async function GET(req) {
       )`)
       params.push(kw, kw, kw, kw, kw, kw, kw)
     }
+    
+    // โค้ดส่วนที่เหลือทำงานถูกต้องอยู่แล้ว เพราะมันจะนำ 'deleted_at IS NULL' ไปต่อกับเงื่อนไขอื่นให้เอง
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
 
     const [countRows] = await db.execute(
@@ -32,7 +36,6 @@ export async function GET(req) {
     )
     const total = countRows?.[0]?.total ?? 0
 
-    // ✅ เลือก latlong + แตกเป็น text เฉยๆ เผื่อแสดงผล
     const [rows] = await db.execute(
       `
       SELECT
@@ -74,7 +77,7 @@ export async function GET(req) {
   }
 }
 
-// POST /api/elderly
+// POST /api/elderly (ส่วนนี้ถูกต้องอยู่แล้ว ไม่ต้องแก้ไข)
 export async function POST(req) {
   try {
     const db = await connectDB()
@@ -93,8 +96,8 @@ export async function POST(req) {
     const {
       name, birthDate, gender, address, subdistrict, district, province,
       citizenID = null, phone, phonNumber, phoneNumber,
-      latitude = null, longitude = null, // เผื่อฟอร์มเก่า
-      latlong: latlongFromBody = null,   // ฟอร์มใหม่
+      latitude = null, longitude = null,
+      latlong: latlongFromBody = null,
     } = body || {}
 
     const required = { name, birthDate, gender, address, subdistrict, district, province }
@@ -105,8 +108,6 @@ export async function POST(req) {
     }
 
     const phoneValue = (phoneNumber ?? phone ?? phonNumber) ?? null
-
-    // ✅ รวมพิกัดให้ตรงกับคอลัมน์ latlong
     const latlong =
       latlongFromBody && String(latlongFromBody).trim() !== ''
         ? String(latlongFromBody).trim()

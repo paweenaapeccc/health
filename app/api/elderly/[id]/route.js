@@ -4,7 +4,7 @@ import { connectDB } from '@/lib/db'
 // ---------- GET /api/elderly/[id] ----------
 export async function GET(_req, { params }) {
   try {
-    const elderlyID = params.id;          // ใช้เป็นสตริงตรง ๆ (เช่น ELD002)
+    const elderlyID = params.id;
     const db = await connectDB();
     const [rows] = await db.execute(
       `
@@ -17,13 +17,14 @@ export async function GET(_req, { params }) {
         birthDate,
         gender,
         address, subdistrict, district, province,
-        latlong    AS latitude          -- ← ใช้คอลัมน์ latlong แล้ว map ชื่อส่งกลับเป็น latitude
+        latlong    AS latitude
       FROM elderly
-      WHERE elderlyID = ?
+      WHERE elderlyID = ? AND deleted_at IS NULL -- <-- ⭐️ เพิ่มเงื่อนไขนี้
       `,
       [elderlyID]
     );
 
+    // ถ้าไม่เจอข้อมูล (เพราะไม่มี ID นี้ หรือเพราะถูกลบไปแล้ว) ให้ส่ง 404
     if (!rows.length) {
       return NextResponse.json({ error: 'ไม่พบข้อมูล' }, { status: 404 });
     }
@@ -41,8 +42,7 @@ export async function PUT(req, { params }) {
     const body = await req.json();
     const db = await connectDB();
 
-    // ไม่อัปเดต userID เพื่อหลีกเลี่ยงชน FK
-    await db.execute(
+    const [result] = await db.execute(
       `
       UPDATE elderly SET
         name=?,
@@ -54,8 +54,8 @@ export async function PUT(req, { params }) {
         subdistrict=?,
         district=?,
         province=?,
-        latlong=?                     -- ← อัปเดตลงคอลัมน์ latlong เพียงคอลัมน์เดียว
-      WHERE elderlyID=?
+        latlong=?
+      WHERE elderlyID = ? AND deleted_at IS NULL -- <-- ⭐️ เพิ่มเงื่อนไขนี้
       `,
       [
         body.name ?? null,
@@ -67,14 +67,38 @@ export async function PUT(req, { params }) {
         body.subdistrict ?? null,
         body.district ?? null,
         body.province ?? null,
-        body.latitude ?? null,        // ← ฟอร์มยังส่งมาในชื่อ latitude (เช่น "14.999999,103.000000")
+        body.latitude ?? null,
         elderlyID
       ]
     );
+
+    // ถ้าไม่มีแถวไหนถูกอัปเดต (เพราะไม่มี ID นี้ หรือเพราะถูกลบไปแล้ว) ให้ส่ง 404
+    if (result.affectedRows === 0) {
+        return NextResponse.json({ error: 'ไม่พบข้อมูลที่จะอัปเดต' }, { status: 404 });
+    }
 
     return NextResponse.json({ ok: true });
   } catch (e) {
     console.error('PUT elderly error:', e);
     return NextResponse.json({ error: 'อัปเดตไม่สำเร็จ' }, { status: 500 });
+  }
+}
+
+// ---------- DELETE /api/elderly/[id] ----------
+export async function DELETE(_req, { params }) {
+  try {
+    const elderlyID = params.id;
+    const db = await connectDB();
+
+    // ใช้ UPDATE เพื่อทำ Soft Delete
+    await db.execute(
+      `UPDATE elderly SET deleted_at = NOW() WHERE elderlyID = ?`,
+      [elderlyID]
+    );
+
+    return new Response(null, { status: 204 });
+  } catch (e) {
+    console.error('SOFT DELETE elderly error:', e);
+    return NextResponse.json({ error: 'ลบข้อมูลไม่สำเร็จ' }, { status: 500 });
   }
 }
