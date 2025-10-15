@@ -10,6 +10,7 @@ export default function EditElderlyPage() {
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [showModal, setShowModal] = useState(false) // ✅ modal แจ้งเตือนตรงกลาง
   const [formData, setFormData] = useState({
     name: '',
     phoneNumber: '',
@@ -86,12 +87,12 @@ export default function EditElderlyPage() {
         body: JSON.stringify({
           ...formData,
           phone: formData.phoneNumber,
-          birthDate: toChristianDate(formData.birthDate) // ✅ แปลง พ.ศ. → ค.ศ.
+          birthDate: toChristianDate(formData.birthDate)
         })
       })
       if (res.ok) {
-        alert('อัปเดตข้อมูลสำเร็จ')
-        router.push('/admin/elderly')
+        // ✅ แสดง modal ตรงกลางแทน alert
+        setShowModal(true)
       } else {
         const data = await res.json().catch(() => ({}))
         alert(data?.error || 'เกิดข้อผิดพลาด')
@@ -247,6 +248,26 @@ export default function EditElderlyPage() {
           </div>
         </form>
       </div>
+
+      {/* ✅ Modal ตรงกลางเมื่อบันทึกสำเร็จ */}
+      {showModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 transition-opacity duration-300">
+          <div className="bg-white p-6 rounded-2xl shadow-2xl w-[90%] max-w-sm text-center">
+            <h2 className="text-lg font-semibold text-gray-800">✅ อัปเดตข้อมูลสำเร็จ</h2>
+            <div className="mt-4 flex justify-center">
+              <button
+                onClick={() => {
+                  setShowModal(false)
+                  router.push('/admin/elderly')
+                }}
+                className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition"
+              >
+                ตกลง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
