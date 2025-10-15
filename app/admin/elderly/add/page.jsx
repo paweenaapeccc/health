@@ -10,7 +10,10 @@ function ClientOnly({ children }) {
   return children
 }
 
+editelderlyadd1
+export default function AddElderlyMemberPage() {
 export default function AddElderlyAdminPage() {
+develop
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -26,6 +29,16 @@ export default function AddElderlyAdminPage() {
     latlong: '' // ✅ เก็บพิกัดรวม "lat,long"
   })
 
+  // ✅ แปลงข้อความวันเกิด (พ.ศ.) → ค.ศ.
+  const parseThaiDateInput = (text) => {
+    if (!text) return ''
+    const match = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/)
+    if (!match) return ''
+    const [_, day, month, yearThai] = match
+    const yearAD = parseInt(yearThai) - 543
+    return `${yearAD}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  }
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
@@ -39,13 +52,19 @@ export default function AddElderlyAdminPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+editelderlyadd1
+          phone: formData.phoneNumber,
+          birthDate: parseThaiDateInput(formData.birthDate)
+        })
+
           phone: formData.phoneNumber, // DB column คือ phonNumber
         }),
+develop
       })
 
       if (res.ok) {
         alert('เพิ่มข้อมูลผู้สูงอายุสำเร็จ')
-        router.push('/admin/elderly')
+        router.push('/member/elderly')
       } else {
         const data = await res.json().catch(() => ({}))
         alert(data?.error || 'เกิดข้อผิดพลาด')
@@ -55,12 +74,15 @@ export default function AddElderlyAdminPage() {
     }
   }
 
+editelderlyadd1
+
   const antiAutofill = {
     autoComplete: 'off',
     'data-lpignore': 'true',
     'data-1p-ignore': 'true',
   }
 
+develop
   const label = 'text-sm font-medium text-slate-700'
   const input =
     'w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
@@ -83,6 +105,73 @@ export default function AddElderlyAdminPage() {
               <h2 className={sectionTitle}>ข้อมูลส่วนตัว</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
+editelderlyadd1
+                  <label className={label}>
+                    ชื่อ-สกุล <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="name"
+                    placeholder="เช่น นางเอ บีซี"
+                    className={input}
+                    onChange={handleChange}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div>
+                  <label className={label}>เบอร์โทรศัพท์<span className="text-red-500">*</span></label>
+                  <input
+                    name="phoneNumber"
+                    placeholder="เช่น 0812345678"
+                    className={input}
+                    onChange={handleChange}
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div>
+                  <label className={label}>รหัสบัตรประชาชน<span className="text-red-500">*</span></label>
+                  <input
+                    name="citizenID"
+                    placeholder="13 หลัก"
+                    className={input}
+                    onChange={handleChange}
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div>
+                  <label className={label}>
+                    วันเดือนปีเกิด (พ.ศ.) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="birthDate"
+                    placeholder="เช่น 01/01/2500 หรือ 1-1-2500"
+                    className={input}
+                    value={formData.birthDate}
+                    onChange={handleChange}
+                    required
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-slate-500 mt-1">
+                    กรุณากรอกเป็นรูปแบบ วัน/เดือน/ปี พ.ศ.
+                  </p>
+                </div>
+
+                <div>
+                  <label className={label}>
+                    เพศ <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    name="gender"
+                    className={input}
+                    onChange={handleChange}
+                    required
+                    defaultValue=""
+                    autoComplete="off"
+                  >
                   <label className={label}>ชื่อ-สกุล <span className="text-red-500">*</span></label>
                   <input name="name" className={input} onChange={handleChange} required {...antiAutofill} />
                 </div>
@@ -105,6 +194,7 @@ export default function AddElderlyAdminPage() {
                 <div>
                   <label className={label}>เพศ <span className="text-red-500">*</span></label>
                   <select name="gender" className={input} onChange={handleChange} required defaultValue="" {...antiAutofill}>
+develop
                     <option value="" disabled>เลือกเพศ</option>
                     <option value="male">ชาย</option>
                     <option value="female">หญิง</option>
@@ -118,6 +208,60 @@ export default function AddElderlyAdminPage() {
               <h2 className={sectionTitle}>ที่อยู่</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
+editelderlyadd1
+                  <label className={label}>
+                    ที่อยู่ <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="address"
+                    placeholder="เลขที่ หมู่ ถนน (ถ้ามี)"
+                    className={input}
+                    onChange={handleChange}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div>
+                  <label className={label}>
+                    ตำบล <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="subdistrict"
+                    placeholder="ตำบล"
+                    className={input}
+                    onChange={handleChange}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div>
+                  <label className={label}>
+                    อำเภอ <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="district"
+                    placeholder="อำเภอ"
+                    className={input}
+                    onChange={handleChange}
+                    required
+                    autoComplete="off"
+                  />
+                </div>
+
+                <div>
+                  <label className={label}>
+                    จังหวัด <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    name="province"
+                    placeholder="จังหวัด"
+                    className={input}
+                    onChange={handleChange}
+                    required
+                    autoComplete="off"
+                  />
                   <label className={label}>ที่อยู่ <span className="text-red-500">*</span></label>
                   <input name="address" className={input} onChange={handleChange} required {...antiAutofill} />
                 </div>
@@ -135,31 +279,41 @@ export default function AddElderlyAdminPage() {
                 <div>
                   <label className={label}>จังหวัด <span className="text-red-500">*</span></label>
                   <input name="province" className={input} onChange={handleChange} required {...antiAutofill} />
+develop
                 </div>
               </div>
             </section>
 
-            {/* พิกัด (ไม่บังคับ) */}
+            {/* พิกัด */}
             <section>
               <h2 className={sectionTitle}>พิกัด</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
+editelderlyadd1
+                  <label className={label}>ละติจูด-ลองจิจูด</label>
+                  <input
+                    name="latitude"
+                    placeholder="เช่น 14.999999,103.000000"
                   <label className={label}>ละติจูด-ลองจิจูด (เช่น 14.999999,103.000000)</label>
                   <input
                     name="latlong"     // ✅ ใช้ชื่อฟิลด์ตรงกับ DB
                     placeholder="14.999999,103.000000"
+develop
                     className={input}
                     onChange={handleChange}
-                    {...antiAutofill}
+                    autoComplete="off"
                   />
                 </div>
               </div>
             </section>
 
+editelderlyadd1
+            {/* ปุ่มบันทึก */}
+develop
             <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-3 pt-2">
               <button
                 type="button"
-                onClick={() => router.push('/admin/elderly')}
+                onClick={() => router.push('/member/elderly')}
                 className="w-full sm:w-auto rounded-xl border border-slate-300 bg-white px-5 py-2.5 text-slate-700 hover:bg-slate-50 active:scale-[.99] transition"
               >
                 ยกเลิก

@@ -6,43 +6,39 @@ import { useRouter } from "next/navigation";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_BASE || "/api";
 const CHECK_ELDER_ENDPOINT = `${API_BASE}/elderly/exists`;
-const SAVE_ASSESSMENT_ENDPOINT = `${API_BASE}/assessment`;               // healthassessment
-const SAVE_RESULTS_ENDPOINT = `${API_BASE}/assessment_results`;          // assessmentresults
-const GET_RESULT_ENDPOINT = (id) => `${API_BASE}/assessment_results/${encodeURIComponent(id)}`;
+const SAVE_ASSESSMENT_ENDPOINT = `${API_BASE}/assessment`; // healthassessment
+const SAVE_RESULTS_ENDPOINT = `${API_BASE}/assessment_results`; // assessmentresults
+const GET_RESULT_ENDPOINT = (id) =>
+  `${API_BASE}/assessment_results/${encodeURIComponent(id)}`;
 
 const QUESTIONS = [
-  { id: "stiffness",        th: "ข้อเข่าฝืดตอนเช้าน้อยกว่า 30 นาที" },
-  { id: "crepitus",         th: "มีเสียงกรอบแกรบเมื่อขยับข้อ" },
-  { id: "bonyTenderness",   th: "กดเจ็บที่กระดูกข้อเข่า" },
-  { id: "bonyEnlargement",  th: "ข้อใหญ่ผิดรูป" },
-  { id: "noWarmth",         th: "ไม่พบข้ออุ่น" },
+  { id: "stiffness", th: "ข้อเข่าฝืดตอนเช้าน้อยกว่า 30 นาที" },
+  { id: "crepitus", th: "มีเสียงกรอบแกรบเมื่อขยับข้อ" },
+  { id: "bonyTenderness", th: "กดเจ็บที่กระดูกข้อเข่า" },
+  { id: "bonyEnlargement", th: "ข้อใหญ่ผิดรูป" },
+  { id: "noWarmth", th: "ไม่พบข้ออุ่น" },
 ];
 
 export default function KneeOAScreeningPage() {
   const router = useRouter();
-
-  // ---------- เรียก hooks ให้ครบทุก render ----------
   const [mounted, setMounted] = useState(false);
 
-  // Elderly
-  const [elderName, setElderName] = useState("");
+  // Elderly info
+  const [citizenID, setCitizenID] = useState("");
   const [elderVerified, setElderVerified] = useState(false);
-  const [elderInfo, setElderInfo] = useState(null); // { elderlyID, name }
+  const [elderInfo, setElderInfo] = useState(null);
   const [checking, setChecking] = useState(false);
   const [checkError, setCheckError] = useState("");
 
   // Answers
   const [answers, setAnswers] = useState(() =>
-    Object.fromEntries(QUESTIONS.map((q) => [q.id, null])) // "yes" | "no" | null
+    Object.fromEntries(QUESTIONS.map((q) => [q.id, null]))
   );
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
-
-  // NEW: เก็บผลที่อ่านกลับจากฐานข้อมูล
-  const [resultRow, setResultRow] = useState(null); // { elderlyName, as_results, as_score, ... }
+  const [resultRow, setResultRow] = useState(null);
 
   useEffect(() => setMounted(true), []);
-  // ----------------------------------------------------
 
   const yesCount = useMemo(
     () => Object.values(answers).filter((v) => v === "yes").length,
@@ -70,6 +66,7 @@ export default function KneeOAScreeningPage() {
     setResultRow(null);
   };
 
+  // ✅ ตรวจสอบจากเลขบัตรประชาชน
   const checkElder = async () => {
     setChecking(true);
     setElderVerified(false);
@@ -77,101 +74,101 @@ export default function KneeOAScreeningPage() {
     setCheckError("");
 
     try {
-      const url = `${CHECK_ELDER_ENDPOINT}?name=${encodeURIComponent(elderName.trim())}`;
+      const url = `${CHECK_ELDER_ENDPOINT}?citizenID=${encodeURIComponent(
+        citizenID.trim()
+      )}`;
       const res = await fetch(url, { cache: "no-store" });
       const data = await res.json();
-      if (data?.exists) {
+
+      if (data?.exists && (data.data || data.elderlyID)) {
         setElderVerified(true);
-        setElderInfo({ elderlyID: data.elderlyID, name: data.name || elderName.trim() });
+        setElderInfo(
+          data.data || {
+            elderlyID: data.elderlyID,
+            citizenID: data.citizenID,
+            name: data.name,
+          }
+        );
       } else {
-        setCheckError("ไม่พบชื่อผู้สูงอายุในฐานข้อมูล กรุณาเพิ่มชื่อก่อนทำแบบประเมิน");
+        setCheckError(
+          "ไม่พบข้อมูลเลขบัตรประชาชนนี้ในระบบ กรุณาเพิ่มข้อมูลก่อนทำแบบประเมิน"
+        );
       }
     } catch {
-      setCheckError("เกิดข้อผิดพลาดระหว่างตรวจสอบ");
+      setCheckError("เกิดข้อผิดพลาดระหว่างตรวจสอบข้อมูล");
     } finally {
       setChecking(false);
     }
   };
 
-  const submitAssessment = async () => {
-    setSaveError("");
-    setResultRow(null);
+  // ✅ บันทึกข้อมูลแบบประเมิน
+const submitAssessment = async () => {
+  setSaveError("");
+  setResultRow(null);
 
-    if (!elderVerified) {
-      setSaveError("ต้องตรวจสอบชื่อผู้สูงอายุให้ผ่านก่อน");
-      return;
-    }
-    if (!allAnswered) {
-      setSaveError("กรุณาตอบแบบประเมินให้ครบทุกข้อ");
-      return;
-    }
+  if (!elderVerified) {
+    setSaveError("ต้องตรวจสอบข้อมูลผู้สูงอายุก่อน");
+    return;
+  }
+  if (!allAnswered) {
+    setSaveError("กรุณาตอบแบบประเมินให้ครบทุกข้อ");
+    return;
+  }
 
-    setSaving(true);
-    try {
-      // 1) บันทึก healthassessment
-      const payloadAssessment = {
-        elderlyID: elderInfo.elderlyID,
-        stiffness:       answers.stiffness === "yes" ? 1 : 0,
-        crepitus:        answers.crepitus === "yes" ? 1 : 0,
-        bonyTenderness:  answers.bonyTenderness === "yes" ? 1 : 0,
-        bonyEnlargement: answers.bonyEnlargement === "yes" ? 1 : 0,
-        noWarmth:        answers.noWarmth === "yes" ? 1 : 0,
-      };
+  setSaving(true);
+  try {
+    const userID = localStorage.getItem("userID") || null;
 
-      const res1 = await fetch(SAVE_ASSESSMENT_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payloadAssessment),
-      });
-      if (!res1.ok) {
-        const err = await res1.json().catch(() => ({}));
-        throw new Error(err?.error || "บันทึกการประเมินไม่สำเร็จ");
-      }
-      const data1 = await res1.json(); // { ok, assessmentID, yesCount, resultText }
-      const assessmentID = data1.assessmentID;
-      const yesFromServer = data1.yesCount ?? yesCount;
-      const textFromServer = data1.resultText ?? resultText;
+    const payloadAssessment = {
+      userID,
+      elderlyID: elderInfo.elderlyID,
+      stiffness: answers.stiffness === "yes" ? 1 : 0,
+      crepitus: answers.crepitus === "yes" ? 1 : 0,
+      bonyTenderness: answers.bonyTenderness === "yes" ? 1 : 0,
+      bonyEnlargement: answers.bonyEnlargement === "yes" ? 1 : 0,
+      noWarmth: answers.noWarmth === "yes" ? 1 : 0,
+    };
 
-      // 2) บันทึก assessmentresults
-      const payloadResults = {
-        assessmentID, // ต้องตรงกับ healthassessment.assessmentID
-        elderlyID: elderInfo.elderlyID,
-        as_score: yesFromServer,
-        as_results: textFromServer,
-      };
+    const res1 = await fetch(SAVE_ASSESSMENT_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payloadAssessment),
+    });
+    if (!res1.ok) throw new Error("บันทึกการประเมินไม่สำเร็จ");
 
-      const res2 = await fetch(SAVE_RESULTS_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payloadResults),
-      });
-      if (!res2.ok) {
-        const err = await res2.json().catch(() => ({}));
-        throw new Error(err?.message || "บันทึกผลสรุปไม่สำเร็จ");
-      }
+    const data1 = await res1.json();
+    const assessmentID = data1.assessmentID;
+    const yesFromServer = data1.yesCount ?? yesCount;
+    const textFromServer = data1.resultText ?? resultText;
 
-      // 3) ดึงผลจากฐานข้อมูลที่เพิ่งบันทึกมาโชว์
-      const res3 = await fetch(GET_RESULT_ENDPOINT(assessmentID), { cache: "no-store" });
-      const data3 = await res3.json().catch(() => ({}));
-      if (res3.ok && data3?.data) {
-        setResultRow(data3.data); // { elderlyName, as_results, as_score, ... }
-      } else {
-        // ถ้าอ่านกลับไม่สำเร็จ ก็ยังพาไปหน้าผลได้
-        setResultRow({
-          elderlyName: elderInfo?.name ?? "",
-          as_results: textFromServer,
-          as_score: yesFromServer,
-        });
-      }
+    const payloadResults = {
+      assessmentID,
+      elderlyID: elderInfo.elderlyID,
+      as_score: yesFromServer,
+      as_results: textFromServer,
+    };
 
-      // ถ้าอยากไปหน้าแสดงผลเต็ม กดปุ่มได้ (ไม่ redirect อัตโนมัติ)
-      // router.push(`/member/assessment/result?assessmentId=${assessmentID}`);
-    } catch (e) {
-      setSaveError(e.message || "เกิดข้อผิดพลาดในการบันทึก");
-    } finally {
-      setSaving(false);
-    }
-  };
+    const res2 = await fetch(SAVE_RESULTS_ENDPOINT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payloadResults),
+    });
+    if (!res2.ok) throw new Error("บันทึกผลสรุปไม่สำเร็จ");
+
+    // ✅ แสดงในการ์ดด้านล่างเช่นเดิม
+    setResultRow({
+      elderlyName: elderInfo?.name ?? "",
+      as_results: textFromServer,
+      as_score: yesFromServer,
+      assessmentID,
+    });
+  } catch (e) {
+    setSaveError(e.message || "เกิดข้อผิดพลาดในการบันทึก");
+  } finally {
+    setSaving(false);
+  }
+};
+
 
   if (!mounted) {
     return (
@@ -188,49 +185,54 @@ export default function KneeOAScreeningPage() {
           แบบประเมินคัดกรองโรคข้อเข่าเสื่อม
         </h1>
 
-        {/* ผู้สูงอายุ */}
+        {/* ✅ ช่องกรอกเลขบัตรประชาชน */}
         <div className="mb-5">
           <label className="block text-sm font-medium text-gray-700 mb-2">
-            ชื่อผู้สูงอายุ <span className="text-red-600">*</span>
+            เลขบัตรประชาชน <span className="text-red-600">*</span>
           </label>
-          <div className="flex gap-2" suppressHydrationWarning>
+          <div className="flex gap-2">
             <input
               type="text"
-              autoComplete="off"
-              value={elderName}
+              value={citizenID}
               onChange={(e) => {
-                setElderName(e.target.value);
+                setCitizenID(e.target.value);
                 setElderVerified(false);
                 setElderInfo(null);
                 setCheckError("");
                 setResultRow(null);
               }}
-              placeholder="พิมพ์ชื่อ-นามสกุลให้ตรงกับฐานข้อมูล"
+              placeholder="กรอกเลขบัตรประชาชน 13 หลัก"
               className="flex-1 rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             />
             <button
               onClick={checkElder}
-              disabled={!elderName.trim() || checking}
+              disabled={!citizenID.trim() || checking}
               className="px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-semibold"
             >
               {checking ? "กำลังตรวจสอบ..." : "ตรวจสอบ"}
             </button>
           </div>
 
+          {/* ✅ แสดงผลตรวจสอบ */}
           {elderVerified && (
             <div className="mt-2 text-sm text-emerald-700">
-              ✅ พบในฐานข้อมูล: {elderInfo?.name}
+              ✅ พบข้อมูลผู้สูงอายุ: {elderInfo?.name}
             </div>
           )}
+
+          {/* ❌ ไม่พบข้อมูล + ปุ่มเพิ่มข้อมูล */}
           {!elderVerified && checkError && (
-            <div className="mt-2 text-sm text-red-600">
-              ⛔ {checkError}{" "}
-              <a
-                href="/member/elderly/add"
-                className="underline text-indigo-700 hover:text-indigo-900"
+            <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3">
+              <div className="text-sm text-red-600 flex items-center gap-1">
+                <span>⛔</span>
+                <span>{checkError}</span>
+              </div>
+              <button
+                onClick={() => router.push("/member/elderly/add")}
+                className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-600 text-white text-sm rounded-lg shadow hover:bg-indigo-700 active:scale-[.98] transition"
               >
-                ไปเพิ่มชื่อที่ฐานข้อมูล
-              </a>
+                ➕ เพิ่มข้อมูล
+              </button>
             </div>
           )}
         </div>
@@ -240,20 +242,28 @@ export default function KneeOAScreeningPage() {
           className={`overflow-hidden rounded-xl border ${
             elderVerified ? "border-gray-200" : "border-gray-300"
           } ${elderVerified ? "" : "opacity-60 pointer-events-none"}`}
-          title={elderVerified ? "" : "ต้องตรวจสอบชื่อผู้สูงอายุก่อนจึงจะทำแบบประเมินได้"}
         >
           <table className="w-full table-fixed">
             <thead className="bg-gray-100 text-gray-700">
               <tr>
                 <th className="w-12 py-3 px-2 text-sm font-semibold">ข้อ</th>
-                <th className="py-3 px-2 text-sm font-semibold text-left">คำถาม</th>
-                <th className="w-20 py-3 px-2 text-sm font-semibold text-center">ไม่ใช่</th>
-                <th className="w-20 py-3 px-2 text-sm font-semibold text-center">ใช่</th>
+                <th className="py-3 px-2 text-sm font-semibold text-left">
+                  คำถาม
+                </th>
+                <th className="w-20 py-3 px-2 text-sm font-semibold text-center">
+                  ไม่ใช่
+                </th>
+                <th className="w-20 py-3 px-2 text-sm font-semibold text-center">
+                  ใช่
+                </th>
               </tr>
             </thead>
             <tbody>
               {QUESTIONS.map((q, idx) => (
-                <tr key={q.id} className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                <tr
+                  key={q.id}
+                  className={idx % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                >
                   <td className="py-3 px-2 text-center">{idx + 1}</td>
                   <td className="py-3 px-2">{q.th}</td>
                   <td className="py-3 px-2 text-center">
@@ -284,7 +294,9 @@ export default function KneeOAScreeningPage() {
 
         {/* ข้อความผิดพลาด */}
         {saveError && (
-          <div className="mt-3 text-sm text-red-600 text-center">{saveError}</div>
+          <div className="mt-3 text-sm text-red-600 text-center">
+            {saveError}
+          </div>
         )}
 
         {/* ปุ่ม */}
@@ -304,27 +316,25 @@ export default function KneeOAScreeningPage() {
           </button>
         </div>
 
-        {/* NEW: การ์ดแสดงผลที่อ่านกลับมาจากฐานข้อมูล */}
+        {/* การ์ดผลประเมิน */}
         {resultRow && (
           <div className="mt-8 p-5 rounded-xl border shadow-sm bg-gray-50">
-            <h2 className="text-xl font-semibold text-gray-800 mb-3">ผลการประเมินล่าสุด</h2>
+            <h2 className="text-xl font-semibold text-gray-800 mb-3">
+              ผลการประเมินล่าสุด
+            </h2>
             <p className="text-gray-700">
-              <span className="font-medium">ชื่อผู้ถูกประเมิน:</span> {resultRow.elderlyName || elderInfo?.name}
+              <span className="font-medium">ชื่อผู้ถูกประเมิน:</span>{" "}
+              {resultRow.elderlyName || elderInfo?.name}
             </p>
             <p className="text-gray-700 mt-1">
-              <span className="font-medium">ผลการประเมิน:</span> {resultRow.as_results}
+              <span className="font-medium">ผลการประเมิน:</span>{" "}
+              {resultRow.as_results}
               {typeof resultRow.as_score === "number" && (
-                <span className="ml-2 text-sm text-gray-500">(คะแนน {resultRow.as_score})</span>
+                <span className="ml-2 text-sm text-gray-500">
+                  (คะแนน {resultRow.as_score})
+                </span>
               )}
             </p>
-            <div className="mt-4">
-              <a
-                href={`/member/assessment/result?assessmentId=${encodeURIComponent(resultRow.assessmentID || "")}`}
-                className="inline-block px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium"
-              >
-                เปิดหน้าแสดงผลแบบเต็ม
-              </a>
-            </div>
           </div>
         )}
       </div>

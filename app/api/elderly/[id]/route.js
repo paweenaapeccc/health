@@ -2,9 +2,11 @@ import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
 
 // ---------- GET /api/elderly/[id] ----------
-export async function GET(_req, { params }) {
+export async function GET(_req, context) {
   try {
-    const elderlyID = params.id;          // ใช้เป็นสตริงตรง ๆ (เช่น ELD002)
+    const { params } = await context;  // ✅ ต้อง await ก่อนใช้
+    const elderlyID = params.id;       // เช่น ELD002
+
     const db = await connectDB();
     const [rows] = await db.execute(
       `
@@ -17,7 +19,7 @@ export async function GET(_req, { params }) {
         birthDate,
         gender,
         address, subdistrict, district, province,
-        latlong    AS latitude          -- ← ใช้คอลัมน์ latlong แล้ว map ชื่อส่งกลับเป็น latitude
+        latlong    AS latitude
       FROM elderly
       WHERE elderlyID = ?
       `,
@@ -34,14 +36,42 @@ export async function GET(_req, { params }) {
   }
 }
 
-// ---------- PUT /api/elderly/[id] ----------
-export async function PUT(req, { params }) {
+// ---------- DELETE /api/elderly/[id] ----------
+export async function DELETE(_req, context) {
   try {
+    const { params } = await context;  // ✅ Next.js 15 ต้อง await
     const elderlyID = params.id;
+
+    const db = await connectDB();
+
+    // ตรวจสอบว่ามีข้อมูลหรือไม่ก่อนลบ
+    const [rows] = await db.execute(
+      'SELECT elderlyID FROM elderly WHERE elderlyID = ?',
+      [elderlyID]
+    );
+    if (rows.length === 0) {
+      return NextResponse.json({ error: 'ไม่พบข้อมูลที่ต้องการลบ' }, { status: 404 });
+    }
+
+    // ลบข้อมูล
+    await db.execute('DELETE FROM elderly WHERE elderlyID = ?', [elderlyID]);
+
+    return NextResponse.json({ ok: true, message: 'ลบข้อมูลสำเร็จ' });
+  } catch (e) {
+    console.error('DELETE elderly error:', e);
+    return NextResponse.json({ error: 'ลบข้อมูลไม่สำเร็จ' }, { status: 500 });
+  }
+}
+
+// ---------- PUT /api/elderly/[id] ----------
+export async function PUT(req, context) {
+  try {
+    const { params } = await context;  // ✅ await เช่นเดียวกัน
+    const elderlyID = params.id;
+
     const body = await req.json();
     const db = await connectDB();
 
-    // ไม่อัปเดต userID เพื่อหลีกเลี่ยงชน FK
     await db.execute(
       `
       UPDATE elderly SET
@@ -54,7 +84,7 @@ export async function PUT(req, { params }) {
         subdistrict=?,
         district=?,
         province=?,
-        latlong=?                     -- ← อัปเดตลงคอลัมน์ latlong เพียงคอลัมน์เดียว
+        latlong=?
       WHERE elderlyID=?
       `,
       [
@@ -67,8 +97,8 @@ export async function PUT(req, { params }) {
         body.subdistrict ?? null,
         body.district ?? null,
         body.province ?? null,
-        body.latitude ?? null,        // ← ฟอร์มยังส่งมาในชื่อ latitude (เช่น "14.999999,103.000000")
-        elderlyID
+        body.latitude ?? null,
+        elderlyID,
       ]
     );
 

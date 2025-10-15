@@ -112,22 +112,6 @@ export default function AdminNavbar() {
               </Link>
             </li>
           )}
-
-          {/* เกี่ยวกับเรา */}
-          <li>
-            <Link
-              href="/admin/about"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                pathname === '/admin/about'
-                  ? 'bg-blue-200 text-blue-800 font-semibold'
-                  : 'text-gray-700 hover:bg-blue-100'
-              }`}
-            >
-              <Info size={20} />
-              <span>เกี่ยวกับเรา</span>
-            </Link>
-          </li>
-
           {/* รายงาน (dropdown) */}
           {isLoggedIn && (
             <li className="relative" ref={reportRef}>
@@ -176,6 +160,21 @@ export default function AdminNavbar() {
               )}
             </li>
           )}
+
+          {/* เกี่ยวกับเรา */}
+          <li>
+            <Link
+              href="/admin/about"
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
+                pathname === '/admin/about'
+                  ? 'bg-blue-200 text-blue-800 font-semibold'
+                  : 'text-gray-700 hover:bg-blue-100'
+              }`}
+            >
+              <Info size={20} />
+              <span>เกี่ยวกับเรา</span>
+            </Link>
+          </li>
 
           {/* แสดงชื่อผู้ใช้ */}
           {isLoggedIn && (

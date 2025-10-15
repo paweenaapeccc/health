@@ -6,7 +6,7 @@ import { useRouter, useParams } from 'next/navigation'
 export default function EditElderlyPage() {
   const router = useRouter()
   const params = useParams()
-  const id = params?.id   // มาจาก [id]
+  const id = params?.id
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -24,9 +24,26 @@ export default function EditElderlyPage() {
     longitude: ''
   })
 
+  // แปลง ค.ศ. → พ.ศ.
+  const toThaiDate = (isoDate) => {
+    if (!isoDate) return ''
+    const d = new Date(isoDate)
+    const year = d.getFullYear() + 543
+    const month = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+
+  // แปลง พ.ศ. → ค.ศ.
+  const toChristianDate = (thaiDate) => {
+    if (!thaiDate) return ''
+    const [y, m, d] = thaiDate.split('-')
+    const year = parseInt(y) - 543
+    return `${year}-${m}-${d}`
+  }
+
   // โหลดข้อมูลเดิม
   useEffect(() => {
-    if (!id) return
     const load = async () => {
       try {
         const res = await fetch(`/api/elderly/${id}`)
@@ -36,7 +53,7 @@ export default function EditElderlyPage() {
           name: data.name ?? '',
           phoneNumber: data.phoneNumber ?? data.phonNumber ?? '',
           citizenID: data.citizenID ?? '',
-          birthDate: data.birthDate ? data.birthDate.slice(0, 10) : '',
+          birthDate: data.birthDate ? toThaiDate(data.birthDate.slice(0, 10)) : '',
           gender: data.gender ?? '',
           address: data.address ?? '',
           subdistrict: data.subdistrict ?? '',
@@ -52,7 +69,7 @@ export default function EditElderlyPage() {
         setLoading(false)
       }
     }
-    load()
+    if (id) load()
   }, [id, router])
 
   const handleChange = (e) => {
@@ -68,7 +85,8 @@ export default function EditElderlyPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          phone: formData.phoneNumber
+          phone: formData.phoneNumber,
+          birthDate: toChristianDate(formData.birthDate) // ✅ แปลง พ.ศ. → ค.ศ.
         })
       })
       if (res.ok) {
@@ -83,14 +101,13 @@ export default function EditElderlyPage() {
     }
   }
 
-  if (loading) return <div className="p-6">กำลังโหลดข้อมูล…</div>
+  if (loading) {
+    return <div className="p-6">กำลังโหลดข้อมูล…</div>
+  }
 
   const label = 'text-sm font-medium text-slate-700'
   const input =
     'w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
-
-  // ✅ เพิ่มเฉพาะนี้
-  const antiAutofill = { autoComplete: 'off' }
 
   return (
     <div className="">
@@ -101,6 +118,7 @@ export default function EditElderlyPage() {
           onSubmit={handleSubmit}
           className="rounded-2xl bg-white shadow-md ring-1 ring-slate-100 p-6 md:p-8 space-y-6"
         >
+          {/* ข้อมูลพื้นฐาน */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={label}>ชื่อ-สกุล</label>
@@ -131,7 +149,7 @@ export default function EditElderlyPage() {
               />
             </div>
             <div>
-              <label className={label}>วันเกิด</label>
+              <label className={label}>วันเกิด (พ.ศ.)</label>
               <input
                 type="date"
                 name="birthDate"
@@ -155,6 +173,7 @@ export default function EditElderlyPage() {
             </div>
           </div>
 
+          {/* ข้อมูลที่อยู่ */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className={label}>ที่อยู่</label>
@@ -194,21 +213,22 @@ export default function EditElderlyPage() {
             </div>
           </div>
 
+          {/* พิกัด */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className={label}>ละติจูด-ลองจิจูด</label>
-                  <input
-                    name="latitude"
-                    placeholder="เช่น 14.999999,103.000000"
-                    className={input}
-                    inputMode="decimal"
-                    value={formData.latitude}
-                    onChange={handleChange}
-                    {...antiAutofill}
-                  />
-                </div>
+            <div>
+              <label className={label}>ละติจูด-ลองจิจูด</label>
+              <input
+                name="latitude"
+                placeholder="เช่น 14.999999,103.000000"
+                className={input}
+                inputMode="decimal"
+                value={formData.latitude}
+                onChange={handleChange}
+              />
+            </div>
           </div>
 
+          {/* ปุ่ม */}
           <div className="flex gap-3 pt-4">
             <button
               type="button"

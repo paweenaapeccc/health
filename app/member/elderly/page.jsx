@@ -29,7 +29,6 @@ export default function MemberElderlyPage() {
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [deletingId, setDeletingId] = useState(null)
 
   const totalPages = useMemo(() => Math.max(Math.ceil(total / pageSize), 1), [total, pageSize])
 
@@ -67,26 +66,6 @@ export default function MemberElderlyPage() {
     load()
   }
 
-  const handleDelete = async (id) => {
-    if (!id) return
-    const ok = window.confirm('ต้องการลบรายการนี้หรือไม่?')
-    if (!ok) return
-    try {
-      setDeletingId(id)
-      const res = await fetch(`/api/elderly/${encodeURIComponent(id)}`, { method: 'DELETE' })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        alert(data?.error || 'ลบไม่สำเร็จ')
-        return
-      }
-      // ลบออกจาก state ทันที
-      setRows((prev) => prev.filter((r) => (r.id ?? r.elderlyID) !== id))
-      setTotal((t) => Math.max(0, t - 1))
-    } finally {
-      setDeletingId(null)
-    }
-  }
-
   return (
     <div className="">
       <div className="max-w-6xl mx-auto">
@@ -113,7 +92,10 @@ export default function MemberElderlyPage() {
               data-lpignore="true"
               data-1p-ignore="true"
             />
-            <button className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition shadow" type="submit">
+            <button
+              className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition shadow"
+              type="submit"
+            >
               ค้นหา
             </button>
           </form>
@@ -132,18 +114,17 @@ export default function MemberElderlyPage() {
                 <th className="p-3 text-left">โทร</th>
                 <th className="p-3 text-left">ที่อยู่</th>
                 <th className="p-3 text-left">ตำบล/อำเภอ/จังหวัด</th>
-                <th className="p-3 text-left w-40">การทำงาน</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={9} className="p-4 text-center text-gray-500">กำลังโหลด…</td>
+                  <td colSpan={8} className="p-4 text-center text-gray-500">กำลังโหลด…</td>
                 </tr>
               )}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="p-4 text-center text-gray-500">ไม่พบข้อมูล</td>
+                  <td colSpan={8} className="p-4 text-center text-gray-500">ไม่พบข้อมูล</td>
                 </tr>
               )}
               {!loading &&
@@ -162,24 +143,6 @@ export default function MemberElderlyPage() {
                       <td className="p-3">{r.address || '-'}</td>
                       <td className="p-3">
                         {[r.subdistrict, r.district, r.province].filter(Boolean).join(' / ') || '-'}
-                      </td>
-                      <td className="p-3">
-                        <div className="flex gap-2">
-                          <Link
-                            href={`/member/elderly/${encodeURIComponent(id)}/edit`}
-                            className="px-3 py-1.5 rounded-lg border border-blue-600 text-blue-600 hover:bg-blue-50 transition"
-                          >
-                            แก้ไข
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(id)}
-                            disabled={deletingId === id}
-                            className="px-3 py-1.5 rounded-lg border border-red-600 text-red-600 hover:bg-red-50 disabled:opacity-50 transition"
-                          >
-                            {deletingId === id ? 'กำลังลบ…' : 'ลบ'}
-                          </button>
-                        </div>
                       </td>
                     </tr>
                   )
