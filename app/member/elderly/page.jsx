@@ -9,7 +9,10 @@ const fmtDate = (d) => {
   if (!d) return '-'
   try {
     const dt = new Date(d)
-    return new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'medium' }).format(dt)
+    return new Intl.DateTimeFormat('th-TH', {
+      timeZone: 'Asia/Bangkok',
+      dateStyle: 'medium',
+    }).format(dt)
   } catch {
     return '-'
   }
@@ -30,7 +33,10 @@ export default function MemberElderlyPage() {
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
 
-  const totalPages = useMemo(() => Math.max(Math.ceil(total / pageSize), 1), [total, pageSize])
+  const totalPages = useMemo(
+    () => Math.max(Math.ceil(total / pageSize), 1),
+    [total, pageSize]
+  )
 
   const load = async () => {
     setLoading(true)
@@ -67,14 +73,15 @@ export default function MemberElderlyPage() {
   }
 
   return (
-    <div className="">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto bg-white p-10 rounded-3xl shadow-2xl space-y-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-gray-800">ผู้สูงอายุ (Member)</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-3xl font-extrabold text-gray-800">
+            ข้อมูลผู้สูงอายุ
+          </h1>
           <Link
             href="/member/elderly/add"
-            className="px-4 py-2 rounded-lg bg-blue-600 text-white shadow hover:bg-blue-700 transition"
+            className="px-5 py-2.5 rounded-xl bg-blue-600 text-white shadow hover:bg-blue-700 transition"
           >
             + เพิ่มข้อมูล
           </Link>
@@ -82,18 +89,16 @@ export default function MemberElderlyPage() {
 
         {/* Search */}
         <ClientOnly>
-          <form onSubmit={onSearch} className="flex gap-3 mb-6 bg-white p-4 rounded-xl shadow">
+          <form onSubmit={onSearch} className="flex flex-col md:flex-row gap-4">
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="ค้นหาชื่อ / เบอร์ / บัตร / ที่อยู่"
-              className="flex-1 min-w-[260px] border rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              placeholder="เลขบัตรประชาชน"
+              className="flex-1 border border-gray-300 rounded-xl px-4 py-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoComplete="off"
-              data-lpignore="true"
-              data-1p-ignore="true"
             />
             <button
-              className="px-5 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition shadow"
+              className="px-6 py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition shadow"
               type="submit"
             >
               ค้นหา
@@ -102,9 +107,9 @@ export default function MemberElderlyPage() {
         </ClientOnly>
 
         {/* Table */}
-        <div className="overflow-auto rounded-xl bg-white shadow ring-1 ring-gray-200">
-          <table className="min-w-[1100px] w-full text-sm">
-            <thead className="bg-gray-50 text-gray-700">
+        <div className="overflow-x-auto border border-gray-200 rounded-2xl">
+          <table className="min-w-[1100px] w-full text-base text-gray-800">
+            <thead className="bg-gray-50">
               <tr>
                 <th className="p-3 text-left w-20">รหัส</th>
                 <th className="p-3 text-left">ชื่อ-สกุล</th>
@@ -119,30 +124,48 @@ export default function MemberElderlyPage() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={8} className="p-4 text-center text-gray-500">กำลังโหลด…</td>
+                  <td
+                    colSpan={8}
+                    className="p-4 text-center text-gray-500"
+                  >
+                    กำลังโหลด…
+                  </td>
                 </tr>
               )}
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="p-4 text-center text-gray-500">ไม่พบข้อมูล</td>
+                  <td
+                    colSpan={8}
+                    className="p-4 text-center text-gray-500"
+                  >
+                    ไม่พบข้อมูล
+                  </td>
                 </tr>
               )}
               {!loading &&
                 rows.map((r) => {
                   const id = r.id ?? r.elderlyID
                   const name = r.name ?? r.fullName
-                  const phone = r.phonNumber ?? r.phoneNumber ?? r.phone ?? '-'
+                  const phone =
+                    r.phonNumber ?? r.phoneNumber ?? r.phone ?? '-'
                   return (
-                    <tr key={id} className="border-t hover:bg-gray-50 transition">
+                    <tr
+                      key={id}
+                      className="border-t hover:bg-gray-50 transition"
+                    >
                       <td className="p-3">{id}</td>
                       <td className="p-3">{name}</td>
-                      <td className="p-3">{genderLabel(r.gender)}</td>
+                      <td className="p-3">
+                        {genderLabel(r.gender)}
+                      </td>
                       <td className="p-3">{fmtDate(r.birthDate)}</td>
                       <td className="p-3">{r.ageYears ?? '-'}</td>
                       <td className="p-3">{phone || '-'}</td>
                       <td className="p-3">{r.address || '-'}</td>
                       <td className="p-3">
-                        {[r.subdistrict, r.district, r.province].filter(Boolean).join(' / ') || '-'}
+                        {[r.subdistrict, r.district, r.province]
+                          .filter(Boolean)
+                          .join(' / ') || '-'}
                       </td>
                     </tr>
                   )
@@ -152,22 +175,24 @@ export default function MemberElderlyPage() {
         </div>
 
         {/* Pagination */}
-        <div className="mt-6 flex items-center justify-between bg-white p-4 rounded-xl shadow">
-          <div className="text-gray-600">รวม {total} รายการ</div>
-          <div className="flex items-center gap-2">
+        <div className="flex items-center justify-between pt-2">
+          <div className="text-gray-700">รวม {total} รายการ</div>
+          <div className="flex items-center gap-3">
             <button
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="px-3 py-1 border rounded-lg disabled:opacity-50 hover:bg-gray-50 transition"
+              className="px-4 py-2 border rounded-lg disabled:opacity-50 hover:bg-gray-50 transition"
               type="button"
             >
               ก่อนหน้า
             </button>
-            <span className="text-gray-700">หน้า {page} / {totalPages}</span>
+            <span className="text-gray-700">
+              หน้า {page} / {totalPages}
+            </span>
             <button
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              className="px-3 py-1 border rounded-lg disabled:opacity-50 hover:bg-gray-50 transition"
+              className="px-4 py-2 border rounded-lg disabled:opacity-50 hover:bg-gray-50 transition"
               type="button"
             >
               ถัดไป
@@ -175,6 +200,5 @@ export default function MemberElderlyPage() {
           </div>
         </div>
       </div>
-    </div>
   )
 }

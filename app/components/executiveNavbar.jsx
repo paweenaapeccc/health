@@ -85,9 +85,9 @@ function ExecutiveNavbar() {
           {/* เกี่ยวกับเรา */}
           <li>
             <Link
-              href="/about"
+              href="/executive/about"
               className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                pathname === '/about'
+                pathname === '/executive/about'
                   ? 'bg-blue-200 text-blue-800 font-semibold'
                   : 'text-gray-700 hover:bg-blue-100'
               }`}

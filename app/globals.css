@@ -17,3 +17,20 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+@media print {
+  nav, .no-print { display: none !important; }
+
+  @page {
+    size: A4 portrait;
+    margin: 15mm;
+  }
+
+  body {
+    background: white !important;
+  }
+
+  .report-container {
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
