@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-/** เรนเดอร์ children เฉพาะหลัง mount (กัน hydration mismatch จากส่วนขยาย/Autofill) */
 function ClientOnly({ children }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
@@ -28,6 +27,16 @@ export default function AddElderlyMemberPage() {
     longitude: ''
   })
 
+  // ✅ แปลงข้อความวันเกิด (พ.ศ.) → ค.ศ.
+  const parseThaiDateInput = (text) => {
+    if (!text) return ''
+    const match = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/)
+    if (!match) return ''
+    const [_, day, month, yearThai] = match
+    const yearAD = parseInt(yearThai) - 543
+    return `${yearAD}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+  }
+
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
@@ -39,10 +48,10 @@ export default function AddElderlyMemberPage() {
       const res = await fetch('/api/elderly', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // ไม่ต้องส่ง userId; API จะอ่านจาก JWT เอง
         body: JSON.stringify({
           ...formData,
-          phone: formData.phoneNumber, // เผื่อ API เวอร์ชันอื่น
+          phone: formData.phoneNumber,
+          birthDate: parseThaiDateInput(formData.birthDate)
         })
       })
 
@@ -58,14 +67,6 @@ export default function AddElderlyMemberPage() {
     }
   }
 
-  // props ป้องกัน password manager/auto-fill แทรกแอตทริบิวต์จนทำให้ hydrate mismatch
-  const antiAutofill = {
-    autoComplete: 'off',
-    'data-lpignore': 'true',   // LastPass
-    'data-1p-ignore': 'true',  // 1Password
-  }
-
-  // สไตล์ (เฉพาะหน้าตา ไม่แตะลอจิก)
   const label = 'text-sm font-medium text-slate-700'
   const input =
     'w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
@@ -82,7 +83,6 @@ export default function AddElderlyMemberPage() {
           </p>
         </header>
 
-        {/* ✅ ฟอร์ม client-only เพื่อตัดปัญหา fdprocessedid / hydration mismatch */}
         <ClientOnly>
           <form
             onSubmit={handleSubmit}
@@ -103,46 +103,49 @@ export default function AddElderlyMemberPage() {
                     className={input}
                     onChange={handleChange}
                     required
-                    {...antiAutofill}
+                    autoComplete="off"
                   />
                 </div>
 
                 <div>
-                  <label className={label}>เบอร์โทรศัพท์<span className="text-red-500">*</span>
-                  </label>
+                  <label className={label}>เบอร์โทรศัพท์<span className="text-red-500">*</span></label>
                   <input
                     name="phoneNumber"
                     placeholder="เช่น 0812345678"
                     className={input}
                     onChange={handleChange}
-                    {...antiAutofill}
+                    autoComplete="off"
                   />
                 </div>
 
                 <div>
-                  <label className={label}>รหัสบัตรประชาชน<span className="text-red-500">*</span>
-                  </label>
+                  <label className={label}>รหัสบัตรประชาชน<span className="text-red-500">*</span></label>
                   <input
                     name="citizenID"
                     placeholder="13 หลัก"
                     className={input}
                     onChange={handleChange}
-                    {...antiAutofill}
+                    autoComplete="off"
                   />
                 </div>
 
                 <div>
                   <label className={label}>
-                    วันเดือนปีเกิด <span className="text-red-500">*</span>
+                    วันเดือนปีเกิด (พ.ศ.) <span className="text-red-500">*</span>
                   </label>
                   <input
-                    type="date"
+                    type="text"
                     name="birthDate"
+                    placeholder="เช่น 01/01/2500 หรือ 1-1-2500"
                     className={input}
+                    value={formData.birthDate}
                     onChange={handleChange}
                     required
-                    {...antiAutofill}
+                    autoComplete="off"
                   />
+                  <p className="text-xs text-slate-500 mt-1">
+                    กรุณากรอกเป็นรูปแบบ วัน/เดือน/ปี พ.ศ.
+                  </p>
                 </div>
 
                 <div>
@@ -155,7 +158,7 @@ export default function AddElderlyMemberPage() {
                     onChange={handleChange}
                     required
                     defaultValue=""
-                    {...antiAutofill}
+                    autoComplete="off"
                   >
                     <option value="" disabled>เลือกเพศ</option>
                     <option value="male">ชาย</option>
@@ -179,7 +182,7 @@ export default function AddElderlyMemberPage() {
                     className={input}
                     onChange={handleChange}
                     required
-                    {...antiAutofill}
+                    autoComplete="off"
                   />
                 </div>
 
@@ -193,7 +196,7 @@ export default function AddElderlyMemberPage() {
                     className={input}
                     onChange={handleChange}
                     required
-                    {...antiAutofill}
+                    autoComplete="off"
                   />
                 </div>
 
@@ -207,7 +210,7 @@ export default function AddElderlyMemberPage() {
                     className={input}
                     onChange={handleChange}
                     required
-                    {...antiAutofill}
+                    autoComplete="off"
                   />
                 </div>
 
@@ -221,31 +224,30 @@ export default function AddElderlyMemberPage() {
                     className={input}
                     onChange={handleChange}
                     required
-                    {...antiAutofill}
+                    autoComplete="off"
                   />
                 </div>
               </div>
             </section>
 
-            {/* พิกัด (ไม่บังคับ) */}
+            {/* พิกัด */}
             <section>
               <h2 className={sectionTitle}>พิกัด</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className={label}>ละติจูด-ลองจิจูด<span className="text-red-500">*</span>
-                  </label>
+                  <label className={label}>ละติจูด-ลองจิจูด</label>
                   <input
                     name="latitude"
                     placeholder="เช่น 14.999999,103.000000"
                     className={input}
                     onChange={handleChange}
-                    {...antiAutofill}
+                    autoComplete="off"
                   />
                 </div>
               </div>
             </section>
 
-            {/* ปุ่มทำงาน */}
+            {/* ปุ่มบันทึก */}
             <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-3 pt-2">
               <button
                 type="button"

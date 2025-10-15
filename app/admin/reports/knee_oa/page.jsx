@@ -1,5 +1,6 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ResponsiveContainer,
@@ -9,12 +10,16 @@ import {
 
 const genderLabel = (g) => (g === 'male' ? 'ชาย' : g === 'female' ? 'หญิง' : 'ไม่ระบุ');
 
-export default function KneeOAReportPage() {
+// ✅ ปิด SSR สำหรับทั้งหน้า เพื่อป้องกัน hydration mismatch
+export default dynamic(() => Promise.resolve(KneeOAReportPage), { ssr: false });
+
+function KneeOAReportPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
 
+  // โหลดข้อมูลจาก API
   const load = async () => {
     setLoading(true);
     try {
@@ -34,6 +39,7 @@ export default function KneeOAReportPage() {
 
   useEffect(() => { load(); }, []);
 
+  // สร้างข้อมูลตารางสรุปตามเพศ
   const rows = useMemo(() => {
     if (!data) return [];
     return Object.keys(data.byGender).map((g) => ({
@@ -43,6 +49,7 @@ export default function KneeOAReportPage() {
     }));
   }, [data]);
 
+  // ข้อมูลกราฟแท่ง
   const barData = useMemo(() => {
     if (!data) return [];
     return data.bands.map((band) => ({
@@ -54,6 +61,7 @@ export default function KneeOAReportPage() {
     }));
   }, [data]);
 
+  // ข้อมูลกราฟวงกลม
   const pieGenderData = useMemo(() => {
     if (!data) return [];
     return Object.entries(data.byGender || {}).map(([g, obj]) => ({
@@ -66,6 +74,7 @@ export default function KneeOAReportPage() {
   const COLOR_BY_GENDER = { male: '#4F46E5', female: '#EC4899', unknown: '#9CA3AF' };
   const PIE_COLORS = ['#4F46E5', '#EC4899', '#9CA3AF'];
 
+  // ฟังก์ชันดาวน์โหลด CSV
   const downloadCSV = () => {
     if (!data) return;
     const headers = ['เพศ', ...data.bands, 'รวม'];
@@ -84,41 +93,79 @@ export default function KneeOAReportPage() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `knee-oa-report.pdf`;
+    a.download = `knee-oa-report.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
 
-  return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h1 className="text-2xl font-bold mb-4">รายงานภาวะข้อเข่าเสื่อม แยกตามเพศและช่วงอายุ</h1>
+  // สีข้อความตามระดับความเสี่ยง
+  const riskColor = (risk) => {
+    switch (risk) {
+      case 'เสี่ยงสูง':
+        return 'text-red-600 font-semibold';
+      case 'ไม่เสี่ยง':
+        return 'text-green-600 font-semibold';
+      case 'ยังไม่ประเมิน':
+        return 'text-gray-500';
+      default:
+        return '';
+    }
+  };
 
-      {/* Filters */}
+  return (
+    <div className="p-6 max-w-7xl mx-auto">
+      <h1 className="text-2xl font-bold mb-4">
+        รายงานภาวะข้อเข่าเสื่อม แยกตามเพศและช่วงอายุ
+      </h1>
+
+      {/* ตัวกรองช่วงเวลา */}
       <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end mb-6">
         <div>
           <label className="block text-sm mb-1">วันที่เริ่ม</label>
-          <input type="date" value={start} onChange={e => setStart(e.target.value)} className="border rounded px-3 py-2"/>
+          <input
+            type="date"
+            value={start}
+            onChange={e => setStart(e.target.value)}
+            className="border rounded px-3 py-2"
+          />
         </div>
         <div>
           <label className="block text-sm mb-1">ถึงวันที่</label>
-          <input type="date" value={end} onChange={e => setEnd(e.target.value)} className="border rounded px-3 py-2"/>
+          <input
+            type="date"
+            value={end}
+            onChange={e => setEnd(e.target.value)}
+            className="border rounded px-3 py-2"
+          />
         </div>
         <div className="flex gap-2">
-          <button onClick={load} className="px-4 py-2 rounded bg-black text-white">โหลดข้อมูล</button>
-          <button onClick={downloadCSV} disabled={!data} className="px-4 py-2 rounded border">ดาวน์โหลด CSV</button>
+          <button onClick={load} className="px-4 py-2 rounded bg-black text-white">
+            โหลดข้อมูล
+          </button>
+          <button
+            onClick={downloadCSV}
+            disabled={!data}
+            className="px-4 py-2 rounded border"
+          >
+            ดาวน์โหลด CSV
+          </button>
         </div>
       </div>
 
+      {/* เนื้อหา */}
       {loading ? (
         <div>กำลังโหลด...</div>
       ) : !data ? (
         <div className="text-red-600">โหลดข้อมูลไม่สำเร็จ</div>
       ) : (
         <>
-          {/* กราฟแท่ง */}
+          {/* กราฟ */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 mb-6">
-            <div className="col-span-2 border rounded-lg p-4">
-              <div className="font-semibold mb-2">สถิติแยกตามช่วงอายุ (ซ้อนเพศ)</div>
+            {/* กราฟแท่ง */}
+            <div className="col-span-2 border rounded-lg p-4 bg-white shadow-sm">
+              <div className="font-semibold mb-2">
+                สถิติแยกตามช่วงอายุ (ซ้อนเพศ)
+              </div>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={barData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
@@ -135,8 +182,8 @@ export default function KneeOAReportPage() {
               </div>
             </div>
 
-            {/* วงกลม */}
-            <div className="border rounded-lg p-4">
+            {/* กราฟวงกลม */}
+            <div className="border rounded-lg p-4 bg-white shadow-sm">
               <div className="font-semibold mb-2">สัดส่วนตามเพศ (ทั้งหมด)</div>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
@@ -162,8 +209,8 @@ export default function KneeOAReportPage() {
             </div>
           </div>
 
-          {/* ตาราง */}
-          <div className="overflow-x-auto border rounded-lg">
+          {/* ตารางสรุป */}
+          <div className="overflow-x-auto border rounded-lg mb-8 bg-white shadow-sm">
             <table className="min-w-full">
               <thead className="bg-gray-100">
                 <tr>
@@ -194,6 +241,37 @@ export default function KneeOAReportPage() {
                   <td className="p-2 border text-right">{data.grandTotal}</td>
                 </tr>
               </tfoot>
+            </table>
+          </div>
+
+          {/* ตารางรายชื่อผู้สูงอายุ */}
+          <div className="overflow-x-auto border rounded-lg bg-white shadow-sm">
+            <h2 className="text-lg font-semibold p-4 border-b">รายชื่อผู้สูงอายุและระดับความเสี่ยง</h2>
+            <table className="min-w-full">
+              <thead className="bg-gray-100">
+                <tr>
+                  <th className="p-2 border text-left">รหัส</th>
+                  <th className="p-2 border text-left">ชื่อ-สกุล</th>
+                  <th className="p-2 border text-left">เพศ</th>
+                  <th className="p-2 border text-right">อายุ</th>
+                  <th className="p-2 border text-left">กลุ่มความเสี่ยง</th>
+                  <th className="p-2 border text-left">ผลการประเมินล่าสุด</th>
+                  <th className="p-2 border text-left">วันที่ประเมิน</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.list?.map((p) => (
+                  <tr key={p.elderlyID}>
+                    <td className="p-2 border">{p.elderlyID}</td>
+                    <td className="p-2 border">{p.name}</td>
+                    <td className="p-2 border">{genderLabel(p.gender)}</td>
+                    <td className="p-2 border text-right">{p.age}</td>
+                    <td className={`p-2 border ${riskColor(p.riskGroup)}`}>{p.riskGroup}</td>
+                    <td className="p-2 border">{p.resultText}</td>
+                    <td className="p-2 border">{p.assessmentDate}</td>
+                  </tr>
+                ))}
+              </tbody>
             </table>
           </div>
         </>
