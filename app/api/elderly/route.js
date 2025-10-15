@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
 
-// ---------- GET /api/elderly ----------
+// GET /api/elderly?search=...&page=1&pageSize=20
 export async function GET(req) {
   try {
     const db = await connectDB()
@@ -32,6 +32,7 @@ export async function GET(req) {
     )
     const total = countRows?.[0]?.total ?? 0
 
+    // ✅ เลือก latlong + แตกเป็น text เฉยๆ เผื่อแสดงผล
     const [rows] = await db.execute(
       `
       SELECT
@@ -45,7 +46,9 @@ export async function GET(req) {
         gender,
         address,
         subdistrict, district, province,
-        latlong AS latitude           -- ✅ ใช้ latlong แล้ว map ชื่อเป็น latitude ให้ฝั่งหน้า
+        latlong,
+        TRIM(SUBSTRING_INDEX(latlong, ',', 1))  AS latitude_text,
+        TRIM(SUBSTRING_INDEX(latlong, ',', -1)) AS longitude_text
       FROM elderly
       ${whereSql}
       ORDER BY elderlyID ASC
@@ -71,7 +74,7 @@ export async function GET(req) {
   }
 }
 
-// ---------- POST /api/elderly ----------
+// POST /api/elderly
 export async function POST(req) {
   try {
     const db = await connectDB()
@@ -89,7 +92,9 @@ export async function POST(req) {
     const body = await req.json()
     const {
       name, birthDate, gender, address, subdistrict, district, province,
-      citizenID = null, phone, phonNumber, phoneNumber, latitude = null, /* longitude = null, */
+      citizenID = null, phone, phonNumber, phoneNumber,
+      latitude = null, longitude = null, // เผื่อฟอร์มเก่า
+      latlong: latlongFromBody = null,   // ฟอร์มใหม่
     } = body || {}
 
     const required = { name, birthDate, gender, address, subdistrict, district, province }
@@ -101,17 +106,23 @@ export async function POST(req) {
 
     const phoneValue = (phoneNumber ?? phone ?? phonNumber) ?? null
 
+    // ✅ รวมพิกัดให้ตรงกับคอลัมน์ latlong
+    const latlong =
+      latlongFromBody && String(latlongFromBody).trim() !== ''
+        ? String(latlongFromBody).trim()
+        : (latitude ?? '') !== '' && (longitude ?? '') !== ''
+          ? `${latitude},${longitude}`
+          : null
+
     await db.execute(
       `
       INSERT INTO elderly
         (userID, name, phonNumber, citizenID, birthDate, gender,
-         address, subdistrict, district, province, latlong)   -- ✅ ใช้ latlong
+         address, subdistrict, district, province, latlong)
       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
-      [
-        userId, name, phoneValue, citizenID, birthDate, gender,
-        address, subdistrict, district, province, latitude       // ✅ latitude = "lat,long"
-      ]
+      [userId, name, phoneValue, citizenID, birthDate, gender,
+       address, subdistrict, district, province, latlong]
     )
 
     return NextResponse.json({ message: 'Elderly created' }, { status: 201 })

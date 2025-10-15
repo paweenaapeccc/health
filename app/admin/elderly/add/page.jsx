@@ -10,7 +10,10 @@ function ClientOnly({ children }) {
   return children
 }
 
+editelderlyadd1
 export default function AddElderlyMemberPage() {
+export default function AddElderlyAdminPage() {
+develop
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
@@ -23,8 +26,7 @@ export default function AddElderlyMemberPage() {
     subdistrict: '',
     district: '',
     province: '',
-    latitude: '',
-    longitude: ''
+    latlong: '' // ✅ เก็บพิกัดรวม "lat,long"
   })
 
   // ✅ แปลงข้อความวันเกิด (พ.ศ.) → ค.ศ.
@@ -50,9 +52,14 @@ export default function AddElderlyMemberPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
+editelderlyadd1
           phone: formData.phoneNumber,
           birthDate: parseThaiDateInput(formData.birthDate)
         })
+
+          phone: formData.phoneNumber, // DB column คือ phonNumber
+        }),
+develop
       })
 
       if (res.ok) {
@@ -67,6 +74,15 @@ export default function AddElderlyMemberPage() {
     }
   }
 
+editelderlyadd1
+
+  const antiAutofill = {
+    autoComplete: 'off',
+    'data-lpignore': 'true',
+    'data-1p-ignore': 'true',
+  }
+
+develop
   const label = 'text-sm font-medium text-slate-700'
   const input =
     'w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
@@ -75,25 +91,21 @@ export default function AddElderlyMemberPage() {
   return (
     <div className="">
       <div className="mx-auto max-w-4xl">
-        {/* Header */}
         <header className="mb-6">
-          <h1 className="text-3xl font-bold text-slate-900">เพิ่มข้อมูลผู้สูงอายุ (Member)</h1>
+          <h1 className="text-3xl font-bold text-slate-900">เพิ่มข้อมูลผู้สูงอายุ (Admin)</h1>
           <p className="mt-1 text-slate-600 text-sm">
-            กรอกข้อมูลให้ครบถ้วน และถูกต้อง <span className="text-red-500">*</span>
+            กรอกข้อมูลให้ครบถ้วน โดยเฉพาะช่องที่มีเครื่องหมาย <span className="text-red-500">*</span>
           </p>
         </header>
 
         <ClientOnly>
-          <form
-            onSubmit={handleSubmit}
-            className="rounded-2xl bg-white shadow-md ring-1 ring-slate-100 p-6 md:p-8 space-y-8"
-            autoComplete="off"
-          >
+          <form onSubmit={handleSubmit} className="rounded-2xl bg-white shadow-md ring-1 ring-slate-100 p-6 md:p-8 space-y-8" autoComplete="off">
             {/* ข้อมูลส่วนตัว */}
             <section>
               <h2 className={sectionTitle}>ข้อมูลส่วนตัว</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
+editelderlyadd1
                   <label className={label}>
                     ชื่อ-สกุล <span className="text-red-500">*</span>
                   </label>
@@ -160,6 +172,29 @@ export default function AddElderlyMemberPage() {
                     defaultValue=""
                     autoComplete="off"
                   >
+                  <label className={label}>ชื่อ-สกุล <span className="text-red-500">*</span></label>
+                  <input name="name" className={input} onChange={handleChange} required {...antiAutofill} />
+                </div>
+
+                <div>
+                  <label className={label}>เบอร์โทรศัพท์ <span className="text-red-500">*</span></label>
+                  <input name="phoneNumber" className={input} onChange={handleChange} required {...antiAutofill} />
+                </div>
+
+                <div>
+                  <label className={label}>รหัสบัตรประชาชน <span className="text-red-500">*</span></label>
+                  <input name="citizenID" className={input} onChange={handleChange} required {...antiAutofill} />
+                </div>
+
+                <div>
+                  <label className={label}>วันเดือนปีเกิด <span className="text-red-500">*</span></label>
+                  <input type="date" name="birthDate" className={input} onChange={handleChange} required {...antiAutofill} />
+                </div>
+
+                <div>
+                  <label className={label}>เพศ <span className="text-red-500">*</span></label>
+                  <select name="gender" className={input} onChange={handleChange} required defaultValue="" {...antiAutofill}>
+develop
                     <option value="" disabled>เลือกเพศ</option>
                     <option value="male">ชาย</option>
                     <option value="female">หญิง</option>
@@ -173,6 +208,7 @@ export default function AddElderlyMemberPage() {
               <h2 className={sectionTitle}>ที่อยู่</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="md:col-span-2">
+editelderlyadd1
                   <label className={label}>
                     ที่อยู่ <span className="text-red-500">*</span>
                   </label>
@@ -226,6 +262,24 @@ export default function AddElderlyMemberPage() {
                     required
                     autoComplete="off"
                   />
+                  <label className={label}>ที่อยู่ <span className="text-red-500">*</span></label>
+                  <input name="address" className={input} onChange={handleChange} required {...antiAutofill} />
+                </div>
+
+                <div>
+                  <label className={label}>ตำบล <span className="text-red-500">*</span></label>
+                  <input name="subdistrict" className={input} onChange={handleChange} required {...antiAutofill} />
+                </div>
+
+                <div>
+                  <label className={label}>อำเภอ <span className="text-red-500">*</span></label>
+                  <input name="district" className={input} onChange={handleChange} required {...antiAutofill} />
+                </div>
+
+                <div>
+                  <label className={label}>จังหวัด <span className="text-red-500">*</span></label>
+                  <input name="province" className={input} onChange={handleChange} required {...antiAutofill} />
+develop
                 </div>
               </div>
             </section>
@@ -235,10 +289,16 @@ export default function AddElderlyMemberPage() {
               <h2 className={sectionTitle}>พิกัด</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
+editelderlyadd1
                   <label className={label}>ละติจูด-ลองจิจูด</label>
                   <input
                     name="latitude"
                     placeholder="เช่น 14.999999,103.000000"
+                  <label className={label}>ละติจูด-ลองจิจูด (เช่น 14.999999,103.000000)</label>
+                  <input
+                    name="latlong"     // ✅ ใช้ชื่อฟิลด์ตรงกับ DB
+                    placeholder="14.999999,103.000000"
+develop
                     className={input}
                     onChange={handleChange}
                     autoComplete="off"
@@ -247,7 +307,9 @@ export default function AddElderlyMemberPage() {
               </div>
             </section>
 
+editelderlyadd1
             {/* ปุ่มบันทึก */}
+develop
             <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-3 pt-2">
               <button
                 type="button"
