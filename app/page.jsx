@@ -23,7 +23,7 @@ export default function HomePage() {
 
   return (
     <div>
-      <main className="flex-grow flex justify-center items-start px-4 py-12">
+      <main className="flex-grow flex justify-center items-start px-4 py-16">
         <div className="w-full max-w-4xl">
           {/* กล่องใหญ่สีเขียวอ่อน ครอบทุกอย่าง */}
           <section className="bg-teal-50 border border-teal-200 rounded-2xl shadow-md p-6 md:p-10 space-y-8">

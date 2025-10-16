@@ -25,7 +25,7 @@ export default function AboutPage() {
 
       {/* Footer */}
       <footer className="text-xs text-gray-600 dark:text-gray-400 text-center py-4">
-        © 2025 ระบบดูแลสุขภาพผู้สูงอายุที่มีภาวะข้อเข่าเสื่อม. All rights reserved.
+        © 2025 ระบบสารสนเทศการดูแลสุขภาพผู้สูงอายุที่มีภาวะข้อเข่าเสื่อม.
       </footer>
     </div>
   );

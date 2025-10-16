@@ -1,23 +1,32 @@
 'use client'
 
+import { useEffect, useState, useRef } from 'react'
+import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname, useRouter } from 'next/navigation'
-import { Home, LogIn, LogOut, Info, Users, BarChart3, ChevronDown } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import {
+  Home,
+  LogIn,
+  LogOut,
+  Info,
+  Users,
+  BarChart3,
+  ChevronDown,
+  Menu,
+  X
+} from 'lucide-react'
 
 export default function AdminNavbar() {
   const pathname = usePathname()
   const router = useRouter()
-
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [username, setUsername] = useState('')
   const [role, setRole] = useState('')
+  const [menuOpen, setMenuOpen] = useState(false)
   const [openReport, setOpenReport] = useState(false)
-
   const reportRef = useRef(null)
 
-  // โหลดสถานะ session
+  // ✅ ตรวจสอบ session
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -35,28 +44,16 @@ export default function AdminNavbar() {
     checkSession()
   }, [pathname])
 
-  // ปิด dropdown เมื่อคลิกนอก/กด Esc/เปลี่ยนเส้นทาง
+  // ✅ ปิด dropdown รายงานเมื่อคลิกข้างนอก
   useEffect(() => {
-    const onDocClick = (e) => {
-      if (openReport && reportRef.current && !reportRef.current.contains(e.target)) {
+    const handleClickOutside = (e) => {
+      if (reportRef.current && !reportRef.current.contains(e.target)) {
         setOpenReport(false)
       }
     }
-    const onEsc = (e) => {
-      if (e.key === 'Escape') setOpenReport(false)
-    }
-    document.addEventListener('click', onDocClick)
-    document.addEventListener('keydown', onEsc)
-    return () => {
-      document.removeEventListener('click', onDocClick)
-      document.removeEventListener('keydown', onEsc)
-    }
-  }, [openReport])
-
-  // ปิด dropdown เมื่อเส้นทางเปลี่ยน
-  useEffect(() => {
-    setOpenReport(false)
-  }, [pathname])
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [])
 
   const handleLogout = async () => {
     await fetch('/api/logout', { method: 'POST', cache: 'no-store' })
@@ -68,145 +65,237 @@ export default function AdminNavbar() {
 
   const isActive = (href) => pathname === href || pathname.startsWith(href + '/')
 
+  const itemCls = (active) =>
+    `flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
+      active
+        ? 'bg-blue-200 text-blue-800 font-semibold'
+        : 'text-gray-700 hover:bg-blue-100'
+    } cursor-pointer`
+
   return (
-    <nav className="py-4 sticky top-0 z-50" style={{ backgroundColor: '#33CCCC' }}>
-      <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
-        {/* Logo & System Name */}
-        <div className="flex items-center gap-2">
-          <Image src="/logo.jpeg" alt="Logo" width={40} height={40} />
-          <span className="font-semibold text-lg text-black">
-            ระบบดูแลสุขภาพผู้สูงอายุที่มีภาวะข้อเข่าเสื่อม
-          </span>
-        </div>
+    <nav className="fixed top-0 left-0 w-full z-50 bg-white/90 backdrop-blur-md shadow-md">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* 🔹 แถวบน */}
+        <div className="flex justify-between items-center h-16">
+          {/* โลโก้และชื่อระบบ */}
+          <div className="flex items-center gap-2">
+            <Image src="/logo.jpeg" alt="Logo" width={40} height={40} className="rounded-full" />
+            <span className="font-semibold text-sm sm:text-lg text-gray-900">
+              ระบบดูแลสุขภาพผู้สูงอายุที่มีภาวะข้อเข่าเสื่อม
+            </span>
+          </div>
 
-        {/* Navigation Items */}
-        <ul className="flex items-center space-x-6">
-          {/* หน้าหลัก */}
-          <li>
-            <Link
-              href="/admin"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                pathname === '/admin'
-                  ? 'bg-blue-200 text-blue-800 font-semibold'
-                  : 'text-gray-700 hover:bg-blue-100'
-              }`}
-            >
-              <Home size={20} />
-              <span>หน้าหลัก</span>
-            </Link>
-          </li>
+          {/* ปุ่ม Hamburger */}
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="md:hidden p-2 rounded-lg hover:bg-gray-100"
+          >
+            {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+          </button>
 
-          {/* Elderly (เฉพาะ admin) */}
-          {isLoggedIn && role === 'admin' && (
+          {/* 🔹 เมนู Desktop */}
+          <ul className="hidden md:flex items-center space-x-6 text-gray-700 font-medium">
             <li>
-              <Link
-                href="/admin/elderly"
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                  isActive('/admin/elderly')
-                    ? 'bg-blue-200 text-blue-800 font-semibold'
-                    : 'text-gray-700 hover:bg-blue-100'
-                }`}
-              >
-                <Users size={20} />
-                <span>ผู้สูงอายุ</span>
+              <Link href="/admin" className={itemCls(pathname === '/admin')}>
+                <Home size={20} />
+                <span>หน้าหลัก</span>
               </Link>
             </li>
-          )}
-          {/* รายงาน (dropdown) */}
-          {isLoggedIn && (
-            <li className="relative" ref={reportRef}>
-              <button
-                onClick={() => setOpenReport((v) => !v)}
-                aria-haspopup="menu"
-                aria-expanded={openReport}
-                className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-                  isActive('/admin/reports')
-                    ? 'bg-blue-200 text-blue-800 font-semibold'
-                    : 'text-gray-700 hover:bg-blue-100'
-                }`}
-              >
-                <BarChart3 size={20} />
-                <span>รายงาน</span>
-                <ChevronDown
-                  size={16}
-                  className={`transition-transform ${openReport ? 'rotate-180' : ''}`}
-                />
-              </button>
 
-              {openReport && (
-                <div
-                  role="menu"
-                  className="absolute right-0 mt-2 w-100 rounded-xl border bg-white shadow-lg p-2"
+            {isLoggedIn && role === 'admin' && (
+              <li>
+                <Link
+                  href="/admin/elderly"
+                  className={itemCls(isActive('/admin/elderly'))}
                 >
-                  <Link
-                    href="/admin/reports/knee_oa"
-                    role="menuitem"
-                    className={`block px-3 py-2 rounded-lg hover:bg-gray-50 ${
-                      isActive('/admin/reports/knee_oa') ? 'bg-blue-50 font-semibold' : ''
-                    }`}
-                  >
-                    • รายงานจำนวนผู้สูงอายุ
-                  </Link>
-                  <Link
-                    href="/admin/reports/trend"
-                    role="menuitem"
-                    className={`block px-3 py-2 rounded-lg hover:bg-gray-50 ${
-                      isActive('/admin/reports/trend') ? 'bg-blue-50 font-semibold' : ''
-                    }`}
-                  >
-                    • รายงานแนวโน้มผู้สูงอายุที่มีภาวะข้อเข่าเสื่อมต่อปี
-                  </Link>
-                </div>
-              )}
-            </li>
-          )}
+                  <Users size={20} />
+                  <span>ผู้สูงอายุ</span>
+                </Link>
+              </li>
+            )}
 
-          {/* เกี่ยวกับเรา */}
-          <li>
-            <Link
-              href="/admin/about"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                pathname === '/admin/about'
-                  ? 'bg-blue-200 text-blue-800 font-semibold'
-                  : 'text-gray-700 hover:bg-blue-100'
-              }`}
-            >
-              <Info size={20} />
-              <span>เกี่ยวกับเรา</span>
-            </Link>
-          </li>
+            {/* เมนูรายงาน */}
+            {isLoggedIn && (
+              <li className="relative" ref={reportRef}>
+                <button
+                  onClick={() => setOpenReport(!openReport)}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition focus:outline-none ${
+                    isActive('/admin/reports')
+                      ? 'bg-blue-200 text-blue-800 font-semibold'
+                      : 'text-gray-700 hover:bg-blue-100'
+                  }`}
+                >
+                  <BarChart3 size={20} />
+                  <span>รายงาน</span>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${openReport ? 'rotate-180' : ''}`}
+                  />
+                </button>
 
-          {/* แสดงชื่อผู้ใช้ */}
-          {isLoggedIn && (
-            <li className="text-sm text-gray-800">
-              สวัสดี, {username}
-            </li>
-          )}
+                {openReport && (
+                  <div className="absolute right-0 mt-2 w-80 rounded-xl border bg-white shadow-lg p-2">
+                    <Link
+                      href="/admin/reports/knee_oa"
+                      className={`block px-3 py-2 rounded-lg hover:bg-gray-50 ${
+                        isActive('/admin/reports/knee_oa') ? 'bg-blue-50 font-semibold' : ''
+                      }`}
+                    >
+                      • รายงานจำนวนผู้สูงอายุ
+                    </Link>
+                    <Link
+                      href="/admin/reports/trend"
+                      className={`block px-3 py-2 rounded-lg hover:bg-gray-50 ${
+                        isActive('/admin/reports/trend') ? 'bg-blue-50 font-semibold' : ''
+                      }`}
+                    >
+                      • รายงานแนวโน้มต่อปี
+                    </Link>
+                  </div>
+                )}
+              </li>
+            )}
 
-          {/* เข้าสู่ระบบ / ออกจากระบบ */}
-          {!isLoggedIn ? (
             <li>
-              <Link
-                href="/login"
-                className="flex items-center space-x-2 px-3 py-2 rounded-lg text-gray-700 hover:bg-blue-100"
-              >
-                <LogIn size={20} />
-                <span>เข้าสู่ระบบ</span>
+              <Link href="/admin/about" className={itemCls(pathname === '/admin/about')}>
+                <Info size={20} />
+                <span>เกี่ยวกับเรา</span>
               </Link>
             </li>
-          ) : (
-            <li>
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700"
-              >
-                <LogOut size={20} />
-                <span>ออกจากระบบ</span>
-              </button>
-            </li>
-          )}
-        </ul>
+
+            {isLoggedIn && (
+              <li className="text-sm text-gray-800">
+                สวัสดี, {username}
+              </li>
+            )}
+
+            {!isLoggedIn ? (
+              <li>
+                <Link
+                  href="/login"
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg text-gray-700 hover:bg-blue-100"
+                >
+                  <LogIn size={20} />
+                  <span>เข้าสู่ระบบ</span>
+                </Link>
+              </li>
+            ) : (
+              <li>
+                <button
+                  onClick={handleLogout}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700"
+                >
+                  <LogOut size={20} />
+                  <span>ออกจากระบบ</span>
+                </button>
+              </li>
+            )}
+          </ul>
+        </div>
       </div>
+
+      {/* 🔹 เมนู Mobile */}
+      {menuOpen && (
+        <div className="md:hidden bg-white border-t border-gray-200 shadow-md">
+          <ul className="flex flex-col space-y-2 p-4 text-gray-700 font-medium">
+            <li>
+              <Link
+                href="/admin"
+                onClick={() => setMenuOpen(false)}
+                className={itemCls(pathname === '/admin')}
+              >
+                <Home size={20} />
+                <span>หน้าหลัก</span>
+              </Link>
+            </li>
+
+            {isLoggedIn && role === 'admin' && (
+              <li>
+                <Link
+                  href="/admin/elderly"
+                  onClick={() => setMenuOpen(false)}
+                  className={itemCls(isActive('/admin/elderly'))}
+                >
+                  <Users size={20} />
+                  <span>ผู้สูงอายุ</span>
+                </Link>
+              </li>
+            )}
+
+            {/* เมนูรายงาน (แบบ accordion) */}
+            {isLoggedIn && (
+              <li>
+                <details className="group">
+                  <summary className="flex items-center justify-between px-3 py-2 rounded-lg cursor-pointer hover:bg-blue-100">
+                    <span className="flex items-center gap-2">
+                      <BarChart3 size={20} />
+                      <span>รายงาน</span>
+                    </span>
+                    <ChevronDown size={16} className="group-open:rotate-180 transition-transform" />
+                  </summary>
+                  <div className="pl-6 py-1 space-y-1">
+                    <Link
+                      href="/admin/reports/knee_oa"
+                      onClick={() => setMenuOpen(false)}
+                      className="block py-1 hover:text-blue-600"
+                    >
+                      • รายงานจำนวนผู้สูงอายุ
+                    </Link>
+                    <Link
+                      href="/admin/reports/trend"
+                      onClick={() => setMenuOpen(false)}
+                      className="block py-1 hover:text-blue-600"
+                    >
+                      • รายงานแนวโน้มต่อปี
+                    </Link>
+                  </div>
+                </details>
+              </li>
+            )}
+
+            <li>
+              <Link
+                href="/admin/about"
+                onClick={() => setMenuOpen(false)}
+                className={itemCls(pathname === '/admin/about')}
+              >
+                <Info size={20} />
+                <span>เกี่ยวกับเรา</span>
+              </Link>
+            </li>
+
+            {isLoggedIn && (
+              <li className="text-sm text-gray-800 px-3 py-2">สวัสดี, {username}</li>
+            )}
+
+            {!isLoggedIn ? (
+              <li>
+                <Link
+                  href="/login"
+                  onClick={() => setMenuOpen(false)}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-blue-100"
+                >
+                  <LogIn size={20} />
+                  <span>เข้าสู่ระบบ</span>
+                </Link>
+              </li>
+            ) : (
+              <li>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false)
+                    handleLogout()
+                  }}
+                  className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 w-full text-left"
+                >
+                  <LogOut size={20} />
+                  <span>ออกจากระบบ</span>
+                </button>
+              </li>
+            )}
+          </ul>
+        </div>
+      )}
     </nav>
   )
 }
