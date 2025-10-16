@@ -10,6 +10,9 @@ export default function EditElderlyPage() {
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [showModal, setShowModal] = useState(false)
+  const [modalText, setModalText] = useState('')
+
   const [formData, setFormData] = useState({
     name: '',
     phoneNumber: '',
@@ -63,8 +66,8 @@ export default function EditElderlyPage() {
           longitude: data.longitude ?? ''
         })
       } catch (err) {
-        alert('ไม่สามารถโหลดข้อมูลได้')
-        router.push('/admin/elderly')
+        setModalText('ไม่สามารถโหลดข้อมูลได้')
+        setShowModal(true)
       } finally {
         setLoading(false)
       }
@@ -86,15 +89,17 @@ export default function EditElderlyPage() {
         body: JSON.stringify({
           ...formData,
           phone: formData.phoneNumber,
-          birthDate: toChristianDate(formData.birthDate) // ✅ แปลง พ.ศ. → ค.ศ.
+          birthDate: toChristianDate(formData.birthDate)
         })
       })
       if (res.ok) {
-        alert('อัปเดตข้อมูลสำเร็จ')
-        router.push('/admin/elderly')
+        setModalText('อัปเดตข้อมูลสำเร็จ')
+        setShowModal(true)
+        setTimeout(() => router.push('/admin/elderly'), 1500)
       } else {
         const data = await res.json().catch(() => ({}))
-        alert(data?.error || 'เกิดข้อผิดพลาด')
+        setModalText(data?.error || 'เกิดข้อผิดพลาด')
+        setShowModal(true)
       }
     } finally {
       setSubmitting(false)
@@ -111,6 +116,21 @@ export default function EditElderlyPage() {
 
   return (
     <div className="">
+      {/* ✅ Modal แจ้งเตือนตรงกลาง */}
+      {showModal && (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm w-full mx-4">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">{modalText}</h2>
+            <button
+              onClick={() => setShowModal(false)}
+              className="mt-2 px-6 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
+            >
+              ปิด
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto max-w-4xl">
         <h1 className="text-3xl font-bold text-slate-900 mb-6">แก้ไขข้อมูลผู้สูงอายุ</h1>
 
@@ -122,50 +142,23 @@ export default function EditElderlyPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={label}>ชื่อ-สกุล</label>
-              <input
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className={input}
-                required
-              />
+              <input name="name" value={formData.name} onChange={handleChange} className={input} required />
             </div>
             <div>
               <label className={label}>เบอร์โทรศัพท์</label>
-              <input
-                name="phoneNumber"
-                value={formData.phoneNumber}
-                onChange={handleChange}
-                className={input}
-              />
+              <input name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} className={input} />
             </div>
             <div>
               <label className={label}>รหัสบัตรประชาชน</label>
-              <input
-                name="citizenID"
-                value={formData.citizenID}
-                onChange={handleChange}
-                className={input}
-              />
+              <input name="citizenID" value={formData.citizenID} onChange={handleChange} className={input} />
             </div>
             <div>
               <label className={label}>วันเกิด (พ.ศ.)</label>
-              <input
-                type="date"
-                name="birthDate"
-                value={formData.birthDate}
-                onChange={handleChange}
-                className={input}
-              />
+              <input type="date" name="birthDate" value={formData.birthDate} onChange={handleChange} className={input} />
             </div>
             <div>
               <label className={label}>เพศ</label>
-              <select
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-                className={input}
-              >
+              <select name="gender" value={formData.gender} onChange={handleChange} className={input}>
                 <option value="">เลือกเพศ</option>
                 <option value="male">ชาย</option>
                 <option value="female">หญิง</option>
@@ -177,39 +170,19 @@ export default function EditElderlyPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className={label}>ที่อยู่</label>
-              <input
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                className={input}
-              />
+              <input name="address" value={formData.address} onChange={handleChange} className={input} />
             </div>
             <div>
               <label className={label}>ตำบล</label>
-              <input
-                name="subdistrict"
-                value={formData.subdistrict}
-                onChange={handleChange}
-                className={input}
-              />
+              <input name="subdistrict" value={formData.subdistrict} onChange={handleChange} className={input} />
             </div>
             <div>
               <label className={label}>อำเภอ</label>
-              <input
-                name="district"
-                value={formData.district}
-                onChange={handleChange}
-                className={input}
-              />
+              <input name="district" value={formData.district} onChange={handleChange} className={input} />
             </div>
             <div>
               <label className={label}>จังหวัด</label>
-              <input
-                name="province"
-                value={formData.province}
-                onChange={handleChange}
-                className={input}
-              />
+              <input name="province" value={formData.province} onChange={handleChange} className={input} />
             </div>
           </div>
 
