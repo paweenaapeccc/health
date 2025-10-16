@@ -1,113 +1,130 @@
-'use client'
+"use client";
 
-import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
-const genderLabel = (g) => (g === 'male' ? 'ชาย' : g === 'female' ? 'หญิง' : 'ไม่ระบุ')
+const genderLabel = (g) =>
+  g === "male" ? "ชาย" : g === "female" ? "หญิง" : "ไม่ระบุ";
 
 const fmtDate = (d) => {
-  if (!d) return '-'
+  if (!d) return "-";
   try {
-    const dt = new Date(d)
-    return new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'medium' }).format(dt)
+    const dt = new Date(d);
+    return new Intl.DateTimeFormat("th-TH", {
+      timeZone: "Asia/Bangkok",
+      dateStyle: "medium",
+    }).format(dt);
   } catch {
-    return '-'
+    return "-";
   }
-}
+};
 
 function ClientOnly({ children }) {
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-  if (!mounted) return null
-  return children
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
+  return children;
 }
 
 export default function AdminElderlyPage() {
-  const [q, setQ] = useState('')
-  const [page, setPage] = useState(1)
-  const [pageSize] = useState(20)
-  const [rows, setRows] = useState([])
-  const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [modal, setModal] = useState({ show: false, title: '', message: '', onConfirm: null })
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(20);
+  const [rows, setRows] = useState([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
+  const [modal, setModal] = useState({
+    show: false,
+    title: "",
+    message: "",
+    onConfirm: null,
+  });
 
-  const totalPages = useMemo(() => Math.max(Math.ceil(total / pageSize), 1), [total, pageSize])
+  const totalPages = useMemo(
+    () => Math.max(Math.ceil(total / pageSize), 1),
+    [total, pageSize]
+  );
 
   // โหลดข้อมูล
   const load = async () => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const res = await fetch(`/api/elderly?search=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`, {
-        cache: 'no-store',
-      })
-      const json = await res.json()
+      const res = await fetch(
+        `/api/elderly?search=${encodeURIComponent(
+          q
+        )}&page=${page}&pageSize=${pageSize}`,
+        {
+          cache: "no-store",
+        }
+      );
+      const json = await res.json();
       if (res.ok && (json.ok ?? true)) {
-        const data = Array.isArray(json) ? json : json.data
-        setRows(data || [])
-        setTotal((Array.isArray(json) ? data?.length : json.total) ?? 0)
+        const data = Array.isArray(json) ? json : json.data;
+        setRows(data || []);
+        setTotal((Array.isArray(json) ? data?.length : json.total) ?? 0);
       } else {
-        setRows([])
-        setTotal(0)
+        setRows([]);
+        setTotal(0);
       }
     } catch {
-      setRows([])
-      setTotal(0)
+      setRows([]);
+      setTotal(0);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   useEffect(() => {
-    load()
-  }, [page])
+    load();
+  }, [page]);
 
   const onSearch = (e) => {
-    e.preventDefault()
-    setPage(1)
-    load()
-  }
+    e.preventDefault();
+    setPage(1);
+    load();
+  };
 
   // ✅ Modal Confirm ตรงกลาง
   const showConfirm = (title, message, onConfirm) => {
-    setModal({ show: true, title, message, onConfirm })
-  }
+    setModal({ show: true, title, message, onConfirm });
+  };
 
   const handleDelete = async (id, name) => {
     showConfirm(
-      'ยืนยันการลบข้อมูล',
+      "ยืนยันการลบข้อมูล",
       `ต้องการลบข้อมูลของ "${name}" หรือไม่?`,
       async () => {
         try {
-          const res = await fetch(`/api/elderly/${id}`, { method: 'DELETE' })
-          const json = await res.json()
+          const res = await fetch(`/api/elderly/${id}`, { method: "DELETE" });
+          const json = await res.json();
           if (res.ok && json.ok) {
             setModal({
               show: true,
-              title: 'สำเร็จ',
-              message: 'ลบข้อมูลสำเร็จ',
+              title: "สำเร็จ",
+              message: "ลบข้อมูลสำเร็จ",
               onConfirm: () => setModal({ show: false }),
-            })
-            load()
+            });
+            load();
           } else {
             setModal({
               show: true,
-              title: 'เกิดข้อผิดพลาด',
-              message: json.error || 'ลบข้อมูลไม่สำเร็จ',
+              title: "เกิดข้อผิดพลาด",
+              message: json.error || "ลบข้อมูลไม่สำเร็จ",
               onConfirm: () => setModal({ show: false }),
-            })
+            });
           }
         } catch (e) {
-          console.error(e)
+          console.error(e);
           setModal({
             show: true,
-            title: 'ข้อผิดพลาด',
-            message: 'เกิดข้อผิดพลาดในการลบข้อมูล',
+            title: "ข้อผิดพลาด",
+            message: "เกิดข้อผิดพลาดในการลบข้อมูล",
             onConfirm: () => setModal({ show: false }),
-          })
+          });
         }
       }
-    )
-  }
+    );
+  };
 
   return (
     <div className="max-w-7xl mx-auto relative">
@@ -115,15 +132,17 @@ export default function AdminElderlyPage() {
       {modal.show && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 w-full max-w-md mx-4 text-center space-y-6 animate-fadeIn">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{modal.title}</h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+              {modal.title}
+            </h2>
             <p className="text-gray-600 dark:text-gray-300">{modal.message}</p>
             <div className="flex justify-center gap-4 pt-2">
-              {modal.onConfirm && modal.title === 'ยืนยันการลบข้อมูล' ? (
+              {modal.onConfirm && modal.title === "ยืนยันการลบข้อมูล" ? (
                 <>
                   <button
                     onClick={() => {
-                      setModal({ show: false })
-                      modal.onConfirm()
+                      setModal({ show: false });
+                      modal.onConfirm();
                     }}
                     className="px-5 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition"
                   >
@@ -153,7 +172,9 @@ export default function AdminElderlyPage() {
       <div className="rounded-2xl bg-white shadow-lg ring-1 ring-slate-100 p-6 md:p-8 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-800">ข้อมูลผู้สูงอายุ (Admin)</h1>
+          <h1 className="text-3xl font-bold text-gray-800">
+            ข้อมูลผู้สูงอายุ (Admin)
+          </h1>
           <Link
             href="/admin/elderly/add"
             className="px-4 py-2 rounded-lg bg-blue-600 text-white shadow hover:bg-blue-700 transition"
@@ -217,20 +238,25 @@ export default function AdminElderlyPage() {
               )}
               {!loading &&
                 rows.map((r) => {
-                  const id = r.id ?? r.elderlyID
-                  const name = r.name ?? r.fullName
-                  const phone = r.phonNumber ?? r.phoneNumber ?? r.phone ?? '-'
+                  const id = r.id ?? r.elderlyID;
+                  const name = r.name ?? r.fullName;
+                  const phone = r.phonNumber ?? r.phoneNumber ?? r.phone ?? "-";
                   return (
-                    <tr key={id} className="border-t hover:bg-gray-50 transition">
+                    <tr
+                      key={id}
+                      className="border-t hover:bg-gray-50 transition"
+                    >
                       <td className="p-3">{id}</td>
                       <td className="p-3">{name}</td>
                       <td className="p-3">{genderLabel(r.gender)}</td>
                       <td className="p-3">{fmtDate(r.birthDate)}</td>
-                      <td className="p-3">{r.ageYears ?? '-'}</td>
+                      <td className="p-3">{r.ageYears ?? "-"}</td>
                       <td className="p-3">{phone}</td>
-                      <td className="p-3">{r.address || '-'}</td>
+                      <td className="p-3">{r.address || "-"}</td>
                       <td className="p-3">
-                        {[r.subdistrict, r.district, r.province].filter(Boolean).join(' / ') || '-'}
+                        {[r.subdistrict, r.district, r.province]
+                          .filter(Boolean)
+                          .join(" / ") || "-"}
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex justify-center gap-2">
@@ -249,7 +275,7 @@ export default function AdminElderlyPage() {
                         </div>
                       </td>
                     </tr>
-                  )
+                  );
                 })}
             </tbody>
           </table>
@@ -282,5 +308,5 @@ export default function AdminElderlyPage() {
         </div>
       </div>
     </div>
-  )
+  );
 }
