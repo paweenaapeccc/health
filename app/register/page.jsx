@@ -41,7 +41,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-teal-100 relative">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b">
       {/* ปุ่มย้อนกลับ */}
       <Link
         href="/login"
