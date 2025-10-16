@@ -1,117 +1,143 @@
-import { NextResponse } from 'next/server'
 import { connectDB } from '@/lib/db'
+import { NextResponse } from 'next/server'
 
-// ---------- GET /api/elderly/[id] ----------
-export async function GET(_req, context) {
+/* ==========================================================
+   ✅ PUT /api/elderly/[id]
+   แก้ไขข้อมูลผู้สูงอายุรายคน
+========================================================== */
+export async function PUT(req, { params }) {
   try {
-    const { params } = await context   // ✅ ต้อง await ก่อนใช้
+    const db = await connectDB()
     const elderlyID = params.id
 
-    const db = await connectDB()
-    const [rows] = await db.execute(
-      `
-      SELECT
-        elderlyID  AS id,
-        userID     AS userId,
-        name,
-        phonNumber AS phoneNumber,
-        citizenID,
-        birthDate,
-        gender,
-        address,
-        subdistrict,
-        district,
-        province,
-        latlong AS latitude
-      FROM elderly
-      WHERE elderlyID = ?
-      `,
-      [elderlyID]
-    )
-
-    if (!rows.length) {
-      return NextResponse.json({ error: 'ไม่พบข้อมูล' }, { status: 404 })
+    if (!elderlyID) {
+      return NextResponse.json({ error: 'missing elderlyID' }, { status: 400 })
     }
 
-    return NextResponse.json(rows[0])
-  } catch (e) {
-    console.error('GET elderly error:', e)
-    return NextResponse.json({ error: 'server error' }, { status: 500 })
-  }
-}
-
-// ---------- PUT /api/elderly/[id] ----------
-export async function PUT(req, context) {
-  try {
-    const { params } = await context   // ✅ ต้อง await ก่อนใช้
-    const elderlyID = params.id
-
     const body = await req.json()
-    const db = await connectDB()
+    const {
+      name,
+      phoneNumber,
+      citizenID,
+      birthDate,
+      gender,
+      address,
+      subdistrict,
+      district,
+      province,
+      latitude,
+      longitude,
+      latlong,
+      height,
+      weight,
+      congenitalDisease,
+      note,
+    } = body
 
-    await db.execute(
+    // ✅ รวมค่าพิกัด
+    let latlongValue = null
+    if (latlong && String(latlong).trim() !== '') {
+      latlongValue = String(latlong).trim()
+    } else if (latitude && longitude) {
+      latlongValue = `${latitude},${longitude}`
+    }
+
+    const [result] = await db.execute(
       `
-      UPDATE elderly SET
-        name=?,
-        phonNumber=?,
-        citizenID=?,
-        birthDate=?,
-        gender=?,
-        address=?,
-        subdistrict=?,
-        district=?,
-        province=?,
-        latlong=?
-      WHERE elderlyID=?
+      UPDATE elderly
+      SET
+        name = ?,
+        phonNumber = ?,
+        citizenID = ?,
+        birthDate = ?,
+        gender = ?,
+        address = ?,
+        subdistrict = ?,
+        district = ?,
+        province = ?,
+        latlong = ?,
+        height = ?,
+        weight = ?,
+        congenitalDisease = ?,
+        note = ?
+      WHERE elderlyID = ?
       `,
       [
-        body.name ?? null,
-        body.phone ?? body.phoneNumber ?? null,
-        body.citizenID ?? null,
-        body.birthDate ?? null,
-        body.gender ?? null,
-        body.address ?? null,
-        body.subdistrict ?? null,
-        body.district ?? null,
-        body.province ?? null,
-        body.latitude ?? body.latlong ?? null,
+        name ?? null,
+        phoneNumber ?? null,
+        citizenID ?? null,
+        birthDate ?? null,
+        gender ?? null,
+        address ?? null,
+        subdistrict ?? null,
+        district ?? null,
+        province ?? null,
+        latlongValue ?? null,
+        height ?? null,
+        weight ?? null,
+        congenitalDisease ?? null,
+        note ?? null,
         elderlyID,
       ]
     )
 
-    return NextResponse.json({ ok: true, message: 'อัปเดตข้อมูลสำเร็จ' })
-  } catch (e) {
-    console.error('PUT elderly error:', e)
-    return NextResponse.json({ error: 'อัปเดตไม่สำเร็จ' }, { status: 500 })
+    if (result.affectedRows === 0) {
+      return NextResponse.json(
+        { error: 'ไม่พบข้อมูลผู้สูงอายุที่ต้องการแก้ไข' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({ ok: true, message: 'อัปเดตข้อมูลสำเร็จ' }, { status: 200 })
+  } catch (err) {
+    console.error('PUT /api/elderly/[id] error:', err)
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดขณะอัปเดตข้อมูล' }, { status: 500 })
   }
 }
 
-// ---------- DELETE /api/elderly/[id] ----------
-export async function DELETE(_req, context) {
+/* ==========================================================
+   ✅ DELETE /api/elderly/[id]
+   ลบข้อมูลผู้สูงอายุรายคน
+========================================================== */
+export async function DELETE(req, { params }) {
   try {
-    const { params } = await context   // ✅ ต้อง await ก่อนใช้
+    const db = await connectDB()
     const elderlyID = params.id
 
-    const db = await connectDB()
-
-    // ตรวจสอบว่ามีข้อมูลจริงไหม
-    const [rows] = await db.execute('SELECT elderlyID FROM elderly WHERE elderlyID = ?', [elderlyID])
-    if (rows.length === 0) {
-      return NextResponse.json({ error: 'ไม่พบข้อมูลที่ต้องการลบ' }, { status: 404 })
+    if (!elderlyID) {
+      return NextResponse.json({ error: 'missing elderlyID' }, { status: 400 })
     }
 
-    // 🔹 ลบข้อมูลในตารางลูกก่อน (เพื่อป้องกัน Foreign Key Error)
+    // ✅ ตรวจว่ามีข้อมูลนี้อยู่ก่อน
+    const [check] = await db.execute(
+      'SELECT elderlyID FROM elderly WHERE elderlyID = ? LIMIT 1',
+      [elderlyID]
+    )
+    if (check.length === 0) {
+      return NextResponse.json({ error: 'ไม่พบข้อมูลผู้สูงอายุที่ต้องการลบ' }, { status: 404 })
+    }
+
+    // ✅ ลบข้อมูลลูกที่อ้างถึง elderlyID ก่อน (เพื่อป้องกัน Foreign Key Error)
     await db.execute('DELETE FROM assessmentresults WHERE elderlyID = ?', [elderlyID])
     await db.execute('DELETE FROM healthassessment WHERE elderlyID = ?', [elderlyID])
-    // เพิ่มตารางลูกอื่นได้ เช่น:
-    // await db.execute('DELETE FROM post WHERE elderlyID = ?', [elderlyID])
 
-    // 🔹 ลบข้อมูลหลัก
-    await db.execute('DELETE FROM elderly WHERE elderlyID = ?', [elderlyID])
+    // ✅ จากนั้นลบ elderly ได้เลย
+    const [result] = await db.execute(
+      'DELETE FROM elderly WHERE elderlyID = ?',
+      [elderlyID]
+    )
 
-    return NextResponse.json({ ok: true, message: 'ลบข้อมูลสำเร็จ' })
-  } catch (e) {
-    console.error('DELETE elderly error:', e)
-    return NextResponse.json({ error: 'ลบข้อมูลไม่สำเร็จ' }, { status: 500 })
+    if (result.affectedRows === 0) {
+      return NextResponse.json(
+        { error: 'ไม่สามารถลบข้อมูลได้' },
+        { status: 500 }
+      )
+    }
+
+    // ✅ ตอบกลับ JSON เสมอ
+    return NextResponse.json({ ok: true, message: 'ลบข้อมูลสำเร็จ' }, { status: 200 })
+  } catch (err) {
+    console.error('DELETE /api/elderly/[id] error:', err)
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการลบข้อมูล' }, { status: 500 })
   }
 }

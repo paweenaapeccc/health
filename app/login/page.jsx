@@ -28,9 +28,9 @@ export default function LoginPage() {
       } else {
         // ✅ redirect ตาม role
         if (data.role === 'admin') {
-          router.push('/admin')
+          router.push('/admin/elderly')
         } else if (data.role === 'executive') {
-          router.push('/executive')
+          router.push('/executive/osteo_analysis')
         } else {
           router.push('/member')
         }

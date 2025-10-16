@@ -3,6 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
+/* ------------------------------------------------------------
+   ✅ Helpers
+------------------------------------------------------------ */
 const genderLabel = (g) =>
   g === "male" ? "ชาย" : g === "female" ? "หญิง" : "ไม่ระบุ";
 
@@ -26,6 +29,9 @@ function ClientOnly({ children }) {
   return children;
 }
 
+/* ------------------------------------------------------------
+   ✅ หน้าแสดงข้อมูลผู้สูงอายุ (Admin)
+------------------------------------------------------------ */
 export default function AdminElderlyPage() {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
@@ -33,6 +39,8 @@ export default function AdminElderlyPage() {
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [typingTimeout, setTypingTimeout] = useState(null);
+
   const [modal, setModal] = useState({
     show: false,
     title: "",
@@ -40,22 +48,24 @@ export default function AdminElderlyPage() {
     onConfirm: null,
   });
 
+  const [detail, setDetail] = useState({ show: false, data: null });
+
   const totalPages = useMemo(
     () => Math.max(Math.ceil(total / pageSize), 1),
     [total, pageSize]
   );
 
-  // โหลดข้อมูล
-  const load = async () => {
+  /* ------------------------------------------------------------
+     ✅ โหลดข้อมูลจาก API
+  ------------------------------------------------------------ */
+  const load = async (searchText = q, pageNum = page) => {
     setLoading(true);
     try {
       const res = await fetch(
         `/api/elderly?search=${encodeURIComponent(
-          q
-        )}&page=${page}&pageSize=${pageSize}`,
-        {
-          cache: "no-store",
-        }
+          searchText
+        )}&page=${pageNum}&pageSize=${pageSize}`,
+        { cache: "no-store" }
       );
       const json = await res.json();
       if (res.ok && (json.ok ?? true)) {
@@ -78,13 +88,22 @@ export default function AdminElderlyPage() {
     load();
   }, [page]);
 
+  useEffect(() => {
+    if (typingTimeout) clearTimeout(typingTimeout);
+    const timeout = setTimeout(() => {
+      setPage(1);
+      load(q, 1);
+    }, 500);
+    setTypingTimeout(timeout);
+    return () => clearTimeout(timeout);
+  }, [q]);
+
   const onSearch = (e) => {
     e.preventDefault();
     setPage(1);
     load();
   };
 
-  // ✅ Modal Confirm ตรงกลาง
   const showConfirm = (title, message, onConfirm) => {
     setModal({ show: true, title, message, onConfirm });
   };
@@ -97,11 +116,12 @@ export default function AdminElderlyPage() {
         try {
           const res = await fetch(`/api/elderly/${id}`, { method: "DELETE" });
           const json = await res.json();
+
           if (res.ok && json.ok) {
             setModal({
               show: true,
               title: "สำเร็จ",
-              message: "ลบข้อมูลสำเร็จ",
+              message: "ลบข้อมูลสำเร็จ ✅",
               onConfirm: () => setModal({ show: false }),
             });
             load();
@@ -109,7 +129,7 @@ export default function AdminElderlyPage() {
             setModal({
               show: true,
               title: "เกิดข้อผิดพลาด",
-              message: json.error || "ลบข้อมูลไม่สำเร็จ",
+              message: json.error || "ลบข้อมูลไม่สำเร็จ ❌",
               onConfirm: () => setModal({ show: false }),
             });
           }
@@ -118,7 +138,7 @@ export default function AdminElderlyPage() {
           setModal({
             show: true,
             title: "ข้อผิดพลาด",
-            message: "เกิดข้อผิดพลาดในการลบข้อมูล",
+            message: "เกิดข้อผิดพลาดในการลบข้อมูล ❌",
             onConfirm: () => setModal({ show: false }),
           });
         }
@@ -126,16 +146,80 @@ export default function AdminElderlyPage() {
     );
   };
 
+  /* ------------------------------------------------------------
+     ✅ Render UI
+  ------------------------------------------------------------ */
   return (
     <div className="max-w-7xl mx-auto relative">
-      {/* ✅ Modal Center Confirm */}
-      {modal.show && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
-          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 w-full max-w-md mx-4 text-center space-y-6 animate-fadeIn">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-              {modal.title}
+      {/* ✅ Popup แสดงข้อมูลผู้สูงอายุ */}
+      {detail.show && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-8 relative animate-fadeIn">
+            <button
+              onClick={() => setDetail({ show: false, data: null })}
+              className="absolute top-3 right-4 text-gray-400 hover:text-gray-600 text-2xl"
+            >
+              ×
+            </button>
+
+            <h2 className="text-2xl font-bold text-center mb-4 text-gray-800">
+              ข้อมูลผู้สูงอายุ
             </h2>
-            <p className="text-gray-600 dark:text-gray-300">{modal.message}</p>
+            <div className="space-y-2 text-gray-700">
+              <p>
+                <strong>ชื่อ-สกุล:</strong> {detail.data?.name ?? "-"}
+              </p>
+              <p>
+                <strong>เลขบัตรประชาชน:</strong> {detail.data?.citizenID ?? "-"}
+              </p>
+              <p>
+                <strong>เพศ:</strong> {genderLabel(detail.data?.gender)}
+              </p>
+              <p>
+                <strong>วันเกิด:</strong> {fmtDate(detail.data?.birthDate)}
+              </p>
+              <p>
+                <strong>อายุ:</strong> {detail.data?.age ?? "-"}
+              </p>
+              <p>
+                <strong>โทร:</strong>{" "}
+                {detail.data?.phoneNumber ?? detail.data?.phonNumber ?? "-"}
+              </p>
+              <p>
+                <strong>ที่อยู่:</strong> {detail.data?.address ?? "-"}
+              </p>
+              <p>
+                <strong>ตำบล/อำเภอ/จังหวัด:</strong>{" "}
+                {[detail.data?.subdistrict, detail.data?.district, detail.data?.province]
+                  .filter(Boolean)
+                  .join(" / ") || "-"}
+              </p>
+              <p>
+                <strong>พิกัด:</strong> {detail.data?.latlong ?? "-"}
+              </p>
+              <p>
+                <strong>ส่วนสูง:</strong> {detail.data?.height ?? "-"} ซม.
+              </p>
+              <p>
+                <strong>น้ำหนัก:</strong> {detail.data?.weight ?? "-"} กก.
+              </p>
+              <p>
+                <strong>โรคประจำตัว:</strong> {detail.data?.congenitalDisease ?? "-"}
+              </p>
+              <p>
+                <strong>หมายเหตุ:</strong> {detail.data?.note ?? "-"}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ Modal เดิมสำหรับยืนยัน */}
+      {modal.show && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9998]">
+          <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md mx-4 text-center space-y-6">
+            <h2 className="text-2xl font-bold text-gray-800">{modal.title}</h2>
+            <p className="text-gray-600">{modal.message}</p>
             <div className="flex justify-center gap-4 pt-2">
               {modal.onConfirm && modal.title === "ยืนยันการลบข้อมูล" ? (
                 <>
@@ -168,9 +252,8 @@ export default function AdminElderlyPage() {
         </div>
       )}
 
-      {/* 🔹 ตารางหลัก */}
+      {/* ✅ ตาราง */}
       <div className="rounded-2xl bg-white shadow-lg ring-1 ring-slate-100 p-6 md:p-8 space-y-6">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-800">
             ข้อมูลผู้สูงอายุ (Admin)
@@ -205,61 +288,50 @@ export default function AdminElderlyPage() {
           </form>
         </ClientOnly>
 
-        {/* Table */}
+        {/* ✅ ตารางที่เหลือเฉพาะบัตร+ชื่อ+ปุ่ม popup+แก้ไข+ลบ */}
         <div className="overflow-auto rounded-xl border border-gray-200">
-          <table className="min-w-[1100px] w-full text-sm">
+          <table className="min-w-full text-sm">
             <thead className="bg-gray-100 text-gray-700">
               <tr>
-                <th className="p-3 text-left w-20">รหัส</th>
+                <th className="p-3 text-left">เลขบัตรประชาชน</th>
                 <th className="p-3 text-left">ชื่อ-สกุล</th>
-                <th className="p-3 text-left">เพศ</th>
-                <th className="p-3 text-left">วันเกิด</th>
-                <th className="p-3 text-left">อายุ</th>
-                <th className="p-3 text-left">โทร</th>
-                <th className="p-3 text-left">ที่อยู่</th>
-                <th className="p-3 text-left">ตำบล/อำเภอ/จังหวัด</th>
-                <th className="p-3 text-center w-32"></th>
+                <th className="p-3 text-center w-60">การจัดการ</th>
               </tr>
             </thead>
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={9} className="p-4 text-center text-gray-500">
+                  <td colSpan={3} className="p-4 text-center text-gray-500">
                     กำลังโหลด…
                   </td>
                 </tr>
               )}
+
               {!loading && rows.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="p-4 text-center text-gray-500">
+                  <td colSpan={3} className="p-4 text-center text-gray-500">
                     ไม่พบข้อมูล
                   </td>
                 </tr>
               )}
+
               {!loading &&
                 rows.map((r) => {
                   const id = r.id ?? r.elderlyID;
                   const name = r.name ?? r.fullName;
-                  const phone = r.phonNumber ?? r.phoneNumber ?? r.phone ?? "-";
+
                   return (
-                    <tr
-                      key={id}
-                      className="border-t hover:bg-gray-50 transition"
-                    >
-                      <td className="p-3">{id}</td>
+                    <tr key={id} className="border-t hover:bg-gray-50 transition">
+                      <td className="p-3">{r.citizenID ?? "-"}</td>
                       <td className="p-3">{name}</td>
-                      <td className="p-3">{genderLabel(r.gender)}</td>
-                      <td className="p-3">{fmtDate(r.birthDate)}</td>
-                      <td className="p-3">{r.ageYears ?? "-"}</td>
-                      <td className="p-3">{phone}</td>
-                      <td className="p-3">{r.address || "-"}</td>
-                      <td className="p-3">
-                        {[r.subdistrict, r.district, r.province]
-                          .filter(Boolean)
-                          .join(" / ") || "-"}
-                      </td>
                       <td className="p-3 text-center">
                         <div className="flex justify-center gap-2">
+                          <button
+                            onClick={() => setDetail({ show: true, data: r })}
+                            className="px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 text-xs shadow cursor-pointer"
+                          >
+                            ข้อมูล
+                          </button>
                           <Link
                             href={`/admin/elderly/${id}/edit`}
                             className="px-3 py-1.5 rounded-lg bg-yellow-400 text-white hover:bg-yellow-500 text-xs shadow"

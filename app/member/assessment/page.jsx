@@ -33,8 +33,46 @@ export default function KneeOAScreeningPage() {
   const [saveError, setSaveError] = useState("");
   const [resultRow, setResultRow] = useState(null);
 
-  useEffect(() => setMounted(true), []);
+  // ✅ เพิ่ม: วันที่และชื่อผู้กรอกจาก session
+  const [today, setToday] = useState("");
+  const [userName, setUserName] = useState("ไม่ระบุ");
 
+  useEffect(() => {
+    setMounted(true);
+    const now = new Date();
+    setToday(
+      now.toLocaleDateString("th-TH", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    );
+
+    // ✅ ดึงชื่อผู้ใช้งานจาก session (api/session)
+    const fetchUser = async () => {
+      try {
+        const res = await fetch("/api/session", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.username) {
+            setUserName(data.username);
+            localStorage.setItem("username", data.username);
+          } else {
+            const storedUser =
+              localStorage.getItem("username") ||
+              localStorage.getItem("userName");
+            if (storedUser) setUserName(storedUser);
+          }
+        }
+      } catch (err) {
+        console.warn("ไม่สามารถโหลดข้อมูล session ได้:", err);
+      }
+    };
+
+    fetchUser();
+  }, []);
+
+  // ✅ เกณฑ์การประเมิน: ใช่ ≥ 2 ข้อ = มีโอกาสข้อเข่าเสื่อม
   const yesCount = useMemo(
     () => Object.values(answers).filter((v) => v === "yes").length,
     [answers]
@@ -61,7 +99,7 @@ export default function KneeOAScreeningPage() {
     setResultRow(null);
   };
 
-  // ✅ ตรวจสอบเลขบัตร
+  // ✅ ตรวจสอบเลขบัตรประชาชน
   const checkElder = async () => {
     setChecking(true);
     setElderVerified(false);
@@ -85,7 +123,6 @@ export default function KneeOAScreeningPage() {
         };
         setElderInfo(info);
 
-        // ✅ ถ้ามีผลประเมินแล้ว → แสดงผลเลย ไม่ต้องทำซ้ำ
         if (data.assessment) {
           setResultRow({
             elderlyName: info.name,
@@ -106,9 +143,9 @@ export default function KneeOAScreeningPage() {
     }
   };
 
-  // ✅ บันทึกแบบประเมิน (เฉพาะคนที่ยังไม่เคยทำ)
+  // ✅ บันทึกแบบประเมิน
   const submitAssessment = async () => {
-    if (resultRow) return; // ❗ ป้องกันไม่ให้บันทึกซ้ำ
+    if (resultRow) return;
 
     setSaveError("");
     if (!elderVerified) {
@@ -181,13 +218,37 @@ export default function KneeOAScreeningPage() {
     );
 
   return (
-    <div className="min-h-screen flex items-center justify-center ">
-      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
-        <h1 className="text-3xl font-extrabold text-center text-indigo-700 mb-8 tracking-tight">
+    <div className="min-h-screen flex items-center justify-center 4">
+      <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-gray-200 p-8 space-y-8">
+        <h1 className="text-3xl font-extrabold text-center text-indigo-700 tracking-tight">
           แบบประเมินคัดกรองโรคข้อเข่าเสื่อม
         </h1>
 
-        {/* 🔹 ช่องกรอกเลขบัตร */}
+        {/* 🔹 ส่วนข้อมูลผู้กรอกและวันที่ */}
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between ">
+          <p className="text-gray-700 text-base">
+            🗓️ <span className="font-semibold">วันที่:</span> {today}
+          </p>
+          <p className="text-gray-700 text-base">
+            👤 <span className="font-semibold">ชื่อผู้กรอก:</span> {userName}
+          </p>
+        </div>
+
+        {/* ✅ เพิ่มส่วนเกณฑ์การพิจารณา */}
+        <div className="text-left">
+          <span className="block font-semibold">🔹 เกณฑ์การพิจารณา:</span>
+          <span className="block pl-6">
+            {" "}
+            {/* เพิ่ม class pl-4 เพื่อเว้นระยะจากซ้าย */}
+            หากตอบว่า{" "}
+            <span className="font-semibold">
+              “ใช่” ตั้งแต่ 2 ข้อขึ้นไป
+            </span>{" "}
+            มีโอกาสที่จะเป็นโรคข้อเข่าเสื่อม
+          </span>
+        </div>
+
+        {/* 🔹 กรอกเลขบัตร */}
         <div className="mb-5">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             เลขบัตรประชาชน <span className="text-red-600">*</span>
@@ -223,8 +284,7 @@ export default function KneeOAScreeningPage() {
           {!elderVerified && checkError && (
             <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="text-sm text-red-600 flex items-center gap-1">
-                <span>⛔</span>
-                <span>{checkError}</span>
+                ⛔ {checkError}
               </div>
               <button
                 onClick={() => router.push("/member/elderly/add")}
@@ -236,7 +296,7 @@ export default function KneeOAScreeningPage() {
           )}
         </div>
 
-        {/* 🔹 แบบประเมิน (เฉพาะคนที่ยังไม่เคยทำ) */}
+        {/* 🔹 แบบประเมิน */}
         {!resultRow && (
           <>
             <div
@@ -249,7 +309,9 @@ export default function KneeOAScreeningPage() {
               <table className="w-full table-fixed">
                 <thead className="bg-gray-100 text-gray-700">
                   <tr>
-                    <th className="w-12 py-3 px-2 text-sm font-semibold">ข้อ</th>
+                    <th className="w-12 py-3 px-2 text-sm font-semibold">
+                      ข้อ
+                    </th>
                     <th className="py-3 px-2 text-sm font-semibold text-left">
                       คำถาม
                     </th>
@@ -319,7 +381,7 @@ export default function KneeOAScreeningPage() {
           </>
         )}
 
-        {/* 🔹 ถ้ามีผลแล้ว → แสดงผลทันที */}
+        {/* 🔹 แสดงผลพร้อมคำแนะนำ */}
         {resultRow && (
           <div className="mt-8 p-6 rounded-2xl border shadow-md bg-gradient-to-br from-indigo-50 to-purple-50">
             <h2 className="text-xl font-bold text-indigo-800 mb-4 text-center">
@@ -342,14 +404,41 @@ export default function KneeOAScreeningPage() {
               {resultRow.assessmentDate && (
                 <p className="text-gray-600 text-base mt-1">
                   วันที่ประเมิน:{" "}
-                  {new Date(
-                    resultRow.assessmentDate
-                  ).toLocaleDateString("th-TH")}
+                  {new Date(resultRow.assessmentDate).toLocaleDateString(
+                    "th-TH"
+                  )}
                 </p>
               )}
             </div>
 
-            {/* 🔄 ปุ่มกลับไปทำแบบประเมินใหม่ */}
+            {/* ✅ คำแนะนำในการดูแลสุขภาพ */}
+            {resultRow.as_results.includes(
+              "มีโอกาสที่จะเป็นโรคข้อเข่าเสื่อม"
+            ) && (
+              <div className="mt-6 bg-white/80 rounded-xl p-5 border border-indigo-200 shadow-inner">
+                <h3 className="text-lg font-semibold text-indigo-700 mb-2">
+                  💡 คำแนะนำในการดูแลสุขภาพ
+                </h3>
+                <ul className="list-disc list-inside text-gray-700 leading-relaxed space-y-1 text-base">
+                  <li>
+                    ควรรักษาน้ำหนักให้อยู่ในเกณฑ์ปกติ เพื่อลดแรงกดที่ข้อเข่า
+                  </li>
+                  <li>
+                    หลีกเลี่ยงการนั่งพับเพียบ ขัดสมาธิ หรือยอง ๆ เป็นเวลานาน
+                  </li>
+                  <li>
+                    ออกกำลังกายเบา ๆ เช่น เดิน ว่ายน้ำ หรือปั่นจักรยานวันละ
+                    20–30 นาที
+                  </li>
+                  <li>เลือกรับประทานอาหารที่มีแคลเซียมและวิตามินดีเพียงพอ</li>
+                  <li>
+                    หากมีอาการปวดบ่อยหรือรุนแรง ควรพบแพทย์เพื่อตรวจเพิ่มเติม
+                  </li>
+                </ul>
+              </div>
+            )}
+
+            {/* 🔄 ปุ่มทำแบบประเมินใหม่ */}
             <div className="mt-6 flex justify-center">
               <button
                 onClick={() => {
@@ -363,7 +452,7 @@ export default function KneeOAScreeningPage() {
                 }}
                 className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 shadow-md transition-all"
               >
-                ทำแบบประเมิน
+                ทำแบบประเมินใหม่
               </button>
             </div>
           </div>
