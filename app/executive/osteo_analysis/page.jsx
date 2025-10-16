@@ -9,6 +9,7 @@ const ENDPOINT = "/api/reports/maps_oa";
 const toNumber = (v) =>
   v === null || v === undefined || v === "" ? null : Number(v);
 
+/** ✅ คำนวณระยะทางแบบเส้นตรง (Haversine) */
 function haversineKm(lat1, lon1, lat2, lon2) {
   if ([lat1, lon1, lat2, lon2].some((x) => x == null || Number.isNaN(Number(x))))
     return null;
@@ -26,6 +27,13 @@ function haversineKm(lat1, lon1, lat2, lon2) {
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
+/** ✅ ปรับระยะทางให้ใกล้เคียงระยะบนถนนจริง (ประมาณการ) */
+function roadDistanceApprox(lat1, lon1, lat2, lon2) {
+  const straight = haversineKm(lat1, lon1, lat2, lon2);
+  return straight ? straight * 1.3 : null; // คูณ 1.3 เพื่อประมาณระยะทางขับรถจริง
+}
+
+/** ✅ นับจำนวนอาการ OA */
 function calcYesCount(row) {
   const keys = [
     "stiffness",
@@ -37,12 +45,14 @@ function calcYesCount(row) {
   return keys.reduce((acc, k) => acc + (row?.[k] ? 1 : 0), 0);
 }
 
+/** ✅ ระดับความรุนแรงของ OA */
 function oaSeverity(yesCount) {
   if (yesCount >= 4) return "รุนแรง";
   if (yesCount >= 2) return "ปานกลาง";
   return "น้อย/ไม่มี";
 }
 
+/** ✅ ตัดสินใจการเดินทาง */
 function decideTravel({ distanceKm, severity, t }) {
   if (distanceKm == null)
     return { decision: "ต้องตรวจสอบ", reason: "ไม่มีพิกัด" };
@@ -62,7 +72,7 @@ function decideTravel({ distanceKm, severity, t }) {
   return { decision: "เดินทางเอง", reason: "ใกล้ + OA น้อย" };
 }
 
-/** helper แปลงค่าพิกัดให้ปลอดภัย */
+/** ✅ helper แปลงค่าพิกัดให้ปลอดภัย */
 function fmtCoord(val) {
   const num = Number(val);
   return isNaN(num) ? null : num.toFixed(5);
@@ -78,7 +88,7 @@ function OATravelAnalysisPage() {
   const [total, setTotal] = useState(0);
 
   // ✅ พิกัดโรงพยาบาล
-  const [hospitalLatLong, setHospitalLatLong] = useState("15.0055,103.1009");
+  const [hospitalLatLong, setHospitalLatLong] = useState("14.921865811051898, 103.30055440886561");
   const [latErr, setLatErr] = useState("");
 
   // ✅ เกณฑ์ระยะทาง
@@ -114,10 +124,10 @@ function OATravelAnalysisPage() {
     load({ page: 1 });
   }, []);
 
-  /** แปลงค่าพิกัดโรงพยาบาล */
+  /** ✅ แปลงพิกัดโรงพยาบาล */
   const parsedHospital = useMemo(() => {
     if (!hospitalLatLong.includes(",")) {
-      setLatErr("รูปแบบพิกัดไม่ถูกต้อง (ตัวอย่าง: 15.0055,103.1009)");
+      setLatErr("รูปแบบพิกัดไม่ถูกต้อง (ตัวอย่าง: 14.921865811051898, 103.30055440886561)");
       return { lat: null, lng: null };
     }
 
@@ -126,7 +136,7 @@ function OATravelAnalysisPage() {
     const lng = Number(lngStr);
 
     if (Number.isNaN(lat) || Number.isNaN(lng)) {
-      setLatErr("ค่าพิกัดต้องเป็นตัวเลข เช่น 15.0055,103.1009");
+      setLatErr("ค่าพิกัดต้องเป็นตัวเลข เช่น 14.921865811051898, 103.30055440886561");
       return { lat: null, lng: null };
     }
 
@@ -134,23 +144,27 @@ function OATravelAnalysisPage() {
     return { lat, lng };
   }, [hospitalLatLong]);
 
-  /** enrich ข้อมูล */
+  /** enrich ข้อมูลและคำนวณระยะทางจริงแบบประมาณ */
   const enriched = useMemo(() => {
     const { lat: hospitalLat, lng: hospitalLng } = parsedHospital;
     return rows.map((r) => {
       const yes = calcYesCount(r);
       const sev = oaSeverity(yes);
-      const dist = haversineKm(
+
+      //ใช้สูตรประมาณระยะถนนจริงแทน Haversine เดิม
+      const dist = roadDistanceApprox(
         toNumber(r?.latitude),
         toNumber(r?.longitude),
         toNumber(hospitalLat),
         toNumber(hospitalLng)
       );
+
       const { decision, reason } = decideTravel({
         distanceKm: dist,
         severity: sev,
         t: thresholds,
       });
+
       return { ...r, yesCount: yes, severity: sev, distanceKm: dist, decision, reason };
     });
   }, [rows, parsedHospital, maxSelfTravelKm, considerEscortKm, forcePickupKm]);
@@ -293,7 +307,9 @@ function OATravelAnalysisPage() {
                           ? `${fmtCoord(r.latitude)}, ${fmtCoord(r.longitude)}`
                           : "-"}
                       </td>
-                      <td className="p-3 text-right">{r.distanceKm?.toFixed(2) ?? "-"}</td>
+                      <td className="p-3 text-right">
+                        {r.distanceKm?.toFixed(2) ?? "-"}
+                      </td>
                       <td className="p-3 text-center">{r.yesCount}</td>
                       <td className="p-3 text-center">
                         <span
@@ -327,12 +343,14 @@ function OATravelAnalysisPage() {
                       <td className="p-3 text-center">
                         {fmtCoord(r.latitude) && fmtCoord(r.longitude) ? (
                           <a
-                            href={`https://www.google.com/maps?q=${r.latitude},${r.longitude}`}
-                            target="_blank"
-                            className="text-blue-600 underline text-xs"
-                          >
-                            เปิดแผนที่
-                          </a>
+  href={`https://www.google.com/maps/dir/?api=1&origin=${hospitalLatLong}&destination=${r.latitude},${r.longitude}&travelmode=driving`}
+  target="_blank"
+  rel="noopener noreferrer"
+  className="text-blue-600 underline text-xs"
+>
+  เปิดเส้นทาง
+</a>
+
                         ) : (
                           "-"
                         )}
@@ -350,7 +368,6 @@ function OATravelAnalysisPage() {
           <span>
             รวม {total} รายการ • หน้า {page}/{totalPages}
           </span>
-
           <div className="flex gap-2">
             <button
               onClick={() => {
@@ -363,7 +380,6 @@ function OATravelAnalysisPage() {
             >
               ก่อนหน้า
             </button>
-
             <button
               onClick={() => {
                 const p = Math.min(totalPages, page + 1);
