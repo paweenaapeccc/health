@@ -81,21 +81,6 @@ export default function AdminNavbar() {
 
         {/* Navigation Items */}
         <ul className="flex items-center space-x-6">
-          {/* หน้าหลัก */}
-          <li>
-            <Link
-              href="/admin"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                pathname === '/admin'
-                  ? 'bg-blue-200 text-blue-800 font-semibold'
-                  : 'text-gray-700 hover:bg-blue-100'
-              }`}
-            >
-              <Home size={20} />
-              <span>หน้าหลัก</span>
-            </Link>
-          </li>
-
           {/* Elderly (เฉพาะ admin) */}
           {isLoggedIn && role === 'admin' && (
             <li>

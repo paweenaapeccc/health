@@ -51,21 +51,6 @@ function ExecutiveNavbar() {
 
         {/* Navigation Items */}
         <ul className="flex items-center space-x-6">
-          {/* หน้าหลัก */}
-          <li>
-            <Link
-              href="/executive"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-                pathname === '/executive'
-                  ? 'bg-blue-200 text-blue-800 font-semibold'
-                  : 'text-gray-700 hover:bg-blue-100'
-              }`}
-            >
-              <Home size={20} />
-              <span>หน้าหลัก</span>
-            </Link>
-          </li>
-
           {/* เมนู executive */}
           {isLoggedIn && role === 'executive' && (
             <li>
