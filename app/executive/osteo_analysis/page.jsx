@@ -6,23 +6,34 @@ import { useEffect, useMemo, useState } from "react";
 const ENDPOINT = "/api/reports/maps_oa";
 
 /** ---------- Helpers ---------- **/
-const toNumber = (v) => (v === null || v === undefined || v === "" ? null : Number(v));
+const toNumber = (v) =>
+  v === null || v === undefined || v === "" ? null : Number(v);
 
 function haversineKm(lat1, lon1, lat2, lon2) {
-  if ([lat1, lon1, lat2, lon2].some((x) => x == null || Number.isNaN(Number(x)))) return null;
-  const R = 6371;
+  if ([lat1, lon1, lat2, lon2].some((x) => x == null || Number.isNaN(Number(x))))
+    return null;
+
+  const R = 6371; // รัศมีโลก (กม.)
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
+
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
       Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) ** 2;
+
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
 function calcYesCount(row) {
-  const keys = ["stiffness", "crepitus", "bonyTenderness", "bonyEnlargement", "noWarmth"];
+  const keys = [
+    "stiffness",
+    "crepitus",
+    "bonyTenderness",
+    "bonyEnlargement",
+    "noWarmth",
+  ];
   return keys.reduce((acc, k) => acc + (row?.[k] ? 1 : 0), 0);
 }
 
@@ -33,7 +44,9 @@ function oaSeverity(yesCount) {
 }
 
 function decideTravel({ distanceKm, severity, t }) {
-  if (distanceKm == null) return { decision: "ต้องตรวจสอบ", reason: "ไม่มีพิกัด" };
+  if (distanceKm == null)
+    return { decision: "ต้องตรวจสอบ", reason: "ไม่มีพิกัด" };
+
   const far = distanceKm > t.maxSelfTravelKm;
   const midFar = distanceKm > t.considerEscortKm;
 
@@ -41,7 +54,10 @@ function decideTravel({ distanceKm, severity, t }) {
     return { decision: "ให้รพ.ไปรับ", reason: "OA รุนแรงหรือระยะไกล" };
   }
   if (severity === "ปานกลาง" || midFar) {
-    return { decision: "พิจารณา/ญาติพามา", reason: "OA ปานกลางหรือระยะกลาง" };
+    return {
+      decision: "พิจารณา/ญาติพามา",
+      reason: "OA ปานกลางหรือระยะกลาง",
+    };
   }
   return { decision: "เดินทางเอง", reason: "ใกล้ + OA น้อย" };
 }
@@ -61,15 +77,18 @@ function OATravelAnalysisPage() {
   const [pageSize] = useState(20);
   const [total, setTotal] = useState(0);
 
-  // ✅ ใช้ latlong เดียวเป็นหลัก
+  // ✅ พิกัดโรงพยาบาล
   const [hospitalLatLong, setHospitalLatLong] = useState("15.0055,103.1009");
   const [latErr, setLatErr] = useState("");
+
+  // ✅ เกณฑ์ระยะทาง
   const [maxSelfTravelKm, setMaxSelfTravelKm] = useState(5);
   const [considerEscortKm, setConsiderEscortKm] = useState(10);
   const [forcePickupKm, setForcePickupKm] = useState(20);
 
   const thresholds = { maxSelfTravelKm, considerEscortKm, forcePickupKm };
 
+  /** โหลดข้อมูลจาก API */
   const load = async (opt = {}) => {
     setLoading(true);
     try {
@@ -77,8 +96,10 @@ function OATravelAnalysisPage() {
       url.searchParams.set("page", String(opt.page ?? page));
       url.searchParams.set("pageSize", String(pageSize));
       if (q) url.searchParams.set("search", q);
+
       const res = await fetch(url.toString(), { cache: "no-store" });
       const json = await res.json();
+
       setRows(Array.isArray(json) ? json : json?.rows || []);
       setTotal(Array.isArray(json) ? json.length ?? 0 : json?.total ?? 0);
     } catch {
@@ -93,23 +114,27 @@ function OATravelAnalysisPage() {
     load({ page: 1 });
   }, []);
 
-  // ✅ แยก latlong ออกเป็น lat/lng
+  /** แปลงค่าพิกัดโรงพยาบาล */
   const parsedHospital = useMemo(() => {
     if (!hospitalLatLong.includes(",")) {
       setLatErr("รูปแบบพิกัดไม่ถูกต้อง (ตัวอย่าง: 15.0055,103.1009)");
       return { lat: null, lng: null };
     }
+
     const [latStr, lngStr] = hospitalLatLong.split(",").map((s) => s.trim());
     const lat = Number(latStr);
     const lng = Number(lngStr);
+
     if (Number.isNaN(lat) || Number.isNaN(lng)) {
       setLatErr("ค่าพิกัดต้องเป็นตัวเลข เช่น 15.0055,103.1009");
       return { lat: null, lng: null };
     }
+
     setLatErr("");
     return { lat, lng };
   }, [hospitalLatLong]);
 
+  /** enrich ข้อมูล */
   const enriched = useMemo(() => {
     const { lat: hospitalLat, lng: hospitalLng } = parsedHospital;
     return rows.map((r) => {
@@ -121,11 +146,16 @@ function OATravelAnalysisPage() {
         toNumber(hospitalLat),
         toNumber(hospitalLng)
       );
-      const { decision, reason } = decideTravel({ distanceKm: dist, severity: sev, t: thresholds });
+      const { decision, reason } = decideTravel({
+        distanceKm: dist,
+        severity: sev,
+        t: thresholds,
+      });
       return { ...r, yesCount: yes, severity: sev, distanceKm: dist, decision, reason };
     });
   }, [rows, parsedHospital, maxSelfTravelKm, considerEscortKm, forcePickupKm]);
 
+  /** filter คำค้นหา */
   const filtered = useMemo(() => {
     if (!q) return enriched;
     const kw = q.toLowerCase();
@@ -139,8 +169,9 @@ function OATravelAnalysisPage() {
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
+  /** ---------- Render ---------- **/
   return (
-    <div className="min-h-screen ">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-lg border border-gray-200 p-6 md:p-8 space-y-8">
         <h1 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-4">
           วิเคราะห์การเดินทางมาโรงพยาบาล
@@ -149,7 +180,7 @@ function OATravelAnalysisPage() {
         {/* พิกัดโรงพยาบาล */}
         <section className="space-y-3">
           <h2 className="text-lg font-semibold text-gray-700">
-            🏥 พิกัดโรงพยาบาลบุรีรัมย์ (Lat, Long)
+            🏥 พิกัดโรงพยาบาลกระสัง (Lat, Long)
           </h2>
           <input
             type="text"
@@ -234,14 +265,23 @@ function OATravelAnalysisPage() {
                   <th className="p-3 text-center">แผนที่</th>
                 </tr>
               </thead>
+
               <tbody>
                 {loading ? (
-                  <tr><td colSpan={8} className="text-center p-4">กำลังโหลด...</td></tr>
+                  <tr>
+                    <td colSpan={8} className="text-center p-4">
+                      กำลังโหลด...
+                    </td>
+                  </tr>
                 ) : filtered.length === 0 ? (
-                  <tr><td colSpan={8} className="text-center p-4">ไม่พบข้อมูล</td></tr>
+                  <tr>
+                    <td colSpan={8} className="text-center p-4">
+                      ไม่พบข้อมูล
+                    </td>
+                  </tr>
                 ) : (
-                  filtered.map((r) => (
-                    <tr key={r.id} className="border-t hover:bg-gray-50">
+                  filtered.map((r, idx) => (
+                    <tr key={`${r.id}-${idx}`} className="border-t hover:bg-gray-50">
                       <td className="p-3">
                         <div className="font-medium">{r.name}</div>
                         <div className="text-xs text-gray-500">{r.citizenID}</div>
@@ -310,6 +350,7 @@ function OATravelAnalysisPage() {
           <span>
             รวม {total} รายการ • หน้า {page}/{totalPages}
           </span>
+
           <div className="flex gap-2">
             <button
               onClick={() => {
@@ -322,6 +363,7 @@ function OATravelAnalysisPage() {
             >
               ก่อนหน้า
             </button>
+
             <button
               onClick={() => {
                 const p = Math.min(totalPages, page + 1);
