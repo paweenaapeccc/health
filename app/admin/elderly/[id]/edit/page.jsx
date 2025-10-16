@@ -10,7 +10,7 @@ export default function EditElderlyPage() {
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [showModal, setShowModal] = useState(false)
+  const [showModal, setShowModal] = useState(false) // ✅ modal แจ้งเตือนตรงกลาง
   const [modalText, setModalText] = useState('')
 
   const [formData, setFormData] = useState({
@@ -93,9 +93,9 @@ export default function EditElderlyPage() {
         })
       })
       if (res.ok) {
-        setModalText('อัปเดตข้อมูลสำเร็จ')
+        // ✅ แสดง modal ตรงกลางแทน alert
+        setModalText('✅ อัปเดตข้อมูลสำเร็จ')
         setShowModal(true)
-        setTimeout(() => router.push('/admin/elderly'), 1500)
       } else {
         const data = await res.json().catch(() => ({}))
         setModalText(data?.error || 'เกิดข้อผิดพลาด')
@@ -122,7 +122,10 @@ export default function EditElderlyPage() {
           <div className="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm w-full mx-4">
             <h2 className="text-xl font-semibold text-gray-800 mb-4">{modalText}</h2>
             <button
-              onClick={() => setShowModal(false)}
+              onClick={() => {
+                setShowModal(false)
+                if (modalText.includes('สำเร็จ')) router.push('/admin/elderly')
+              }}
               className="mt-2 px-6 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
             >
               ปิด

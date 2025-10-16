@@ -29,10 +29,11 @@ export default function MemberElderlyPage() {
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [modal, setModal] = useState({ show: false, title: '', message: '', onConfirm: null })
+  const [modal, setModal] = useState({ show: false, title: '', message: '', onConfirm: null }) // ✅ modal confirm ตรงกลาง
 
   const totalPages = useMemo(() => Math.max(Math.ceil(total / pageSize), 1), [total, pageSize])
 
+  // โหลดข้อมูล
   const load = async () => {
     setLoading(true)
     try {
@@ -110,7 +111,7 @@ export default function MemberElderlyPage() {
 
   return (
     <div className="max-w-7xl mx-auto relative">
-      {/* 🔹 Modal Center */}
+      {/* ✅ Modal Center Confirm */}
       {modal.show && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 w-full max-w-md mx-4 text-center space-y-6 animate-fadeIn">
@@ -148,13 +149,13 @@ export default function MemberElderlyPage() {
         </div>
       )}
 
-      {/* 🔹 ส่วนตาราง */}
+      {/* 🔹 ตารางหลัก */}
       <div className="rounded-2xl bg-white shadow-lg ring-1 ring-slate-100 p-6 md:p-8 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <h1 className="text-3xl font-bold text-gray-800">ข้อมูลผู้สูงอายุ (Member)</h1>
           <Link
-            href="/admin/elderly/add"
+            href="/member/elderly/add"
             className="px-4 py-2 rounded-lg bg-blue-600 text-white shadow hover:bg-blue-700 transition"
           >
             + เพิ่มข้อมูล
@@ -170,7 +171,7 @@ export default function MemberElderlyPage() {
             <input
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="เลขบัตรประชาชน"
+              placeholder="ค้นหาชื่อ / เบอร์ / บัตร / ที่อยู่"
               className="flex-1 border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
               autoComplete="off"
             />
@@ -229,12 +230,11 @@ export default function MemberElderlyPage() {
                       <td className="p-3">{phone}</td>
                       <td className="p-3">{r.address || '-'}</td>
                       <td className="p-3">
-                        {[r.subdistrict, r.district, r.province].filter(Boolean).join(' / ') || '-'}
-                      </td>
+                        {[r.subdistrict, r.district, r.province].filter(Boolean).join(' / ') || '-'}</td>
                       <td className="p-3 text-center">
                         <div className="flex justify-center gap-2">
                           <Link
-                            href={`/admin/elderly/${id}/edit`}
+                            href={`/member/elderly/${id}/edit`}
                             className="px-3 py-1.5 rounded-lg bg-yellow-400 text-white hover:bg-yellow-500 text-xs shadow"
                           >
                             แก้ไข

@@ -1,74 +1,88 @@
-// app/admin/reports/trend/page.jsx
-'use client';
+'use client'
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo } from 'react'
 import {
-  ResponsiveContainer, LineChart, Line, XAxis, YAxis,
+  ResponsiveContainer,
+  LineChart, Line, XAxis, YAxis,
   CartesianGrid, Tooltip, Legend
-} from 'recharts';
+} from 'recharts'
 
 export default function OATrendPage() {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const [startYear, setStartYear] = useState('');
-  const [endYear, setEndYear] = useState('');
+  const [mounted, setMounted] = useState(false)
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [startYear, setStartYear] = useState('')
+  const [endYear, setEndYear] = useState('')
 
+  // ✅ โหลดข้อมูลจาก API
   const load = async () => {
-    setLoading(true);
+    setLoading(true)
     try {
-      const qs = new URLSearchParams();
-      if (startYear) qs.set('startYear', startYear);
-      if (endYear) qs.set('endYear', endYear);
-      const res = await fetch(`/api/reports/trend?${qs.toString()}`, { cache: 'no-store' });
-      const json = await res.json();
-      setData(json);
+      const qs = new URLSearchParams()
+      if (startYear) qs.set('startYear', startYear)
+      if (endYear) qs.set('endYear', endYear)
+      const res = await fetch(`/api/reports/trend?${qs.toString()}`, { cache: 'no-store' })
+      if (!res.ok) throw new Error(await res.text())
+      const json = await res.json()
+      setData(json)
     } catch (e) {
-      console.error(e);
-      setData(null);
+      console.error(e)
+      setData(null)
     } finally {
-      setLoading(false);
+      setLoading(false)
     }
-  };
+  }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    setMounted(true)
+    load()
+  }, [])
 
+  // ✅ เตรียมข้อมูลสำหรับกราฟ
   const chartData = useMemo(() => {
-    if (!data?.series) return [];
-    return data.series.map((r) => ({ year: String(r.y), count: Number(r.cnt) }));
-  }, [data]);
+    if (!data?.series) return []
+    return data.series.map((r) => ({
+      year: String(r.y),
+      count: Number(r.cnt),
+    }))
+  }, [data])
 
-  // ✅ ฟังก์ชันดาวน์โหลด CSV
+  // ✅ ดาวน์โหลด CSV
   const downloadCSV = () => {
-    if (!chartData.length) return;
+    if (!chartData.length) return
+    const headers = ['ปี', 'จำนวนผู้มีภาวะข้อเข่าเสื่อม']
+    const rows = chartData.map(r => [r.year, r.count])
+    const total = chartData.reduce((a, b) => a + b.count, 0)
+    rows.push(['รวม', total])
 
-    const headers = ['ปี', 'จำนวนผู้มีภาวะข้อเข่าเสื่อม'];
-    const rows = chartData.map(r => [r.year, r.count]);
-    const total = chartData.reduce((a, b) => a + b.count, 0);
-    rows.push(['รวม', total]);
+    const csvContent = [headers, ...rows].map(e => e.join(',')).join('\n')
+    const blob = new Blob([`\ufeff${csvContent}`], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'OA_trend_report.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
-    // รวมทั้งหมดเป็น CSV string
-    const csvContent = [headers, ...rows].map(e => e.join(',')).join('\n');
+  if (!mounted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <p className="text-gray-500">กำลังโหลด...</p>
+      </div>
+    )
+  }
 
-    // ✅ ใส่ BOM \ufeff เพื่อให้ Excel อ่านภาษาไทยได้
-    const blob = new Blob([`\ufeff${csvContent}`], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'OA_trend_report.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
+  // ✅ UI หลัก
   return (
     <div className="max-w-6xl mx-auto p-6">
-      {/* ✅ กล่องสีขาวเดียวครอบทุกอย่าง */}
+      {/* กล่องสีขาวครอบทั้งหมด */}
       <div className="bg-white border border-gray-200 shadow-lg rounded-2xl p-8 space-y-6">
         <h1 className="text-3xl font-bold text-center text-gray-800 mb-4">
           รายงานแนวโน้มภาวะข้อเข่าเสื่อม (รายปี)
         </h1>
 
-        {/* Filters */}
+        {/* 🔹 ฟิลเตอร์เลือกปี */}
         <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end justify-center">
           <div>
             <label className="block text-sm mb-1">ตั้งแต่ปี</label>
@@ -76,7 +90,7 @@ export default function OATrendPage() {
               type="number"
               placeholder="เช่น 2021"
               value={startYear}
-              onChange={e => setStartYear(e.target.value)}
+              onChange={(e) => setStartYear(e.target.value)}
               className="border rounded px-3 py-2 w-36"
             />
           </div>
@@ -86,7 +100,7 @@ export default function OATrendPage() {
               type="number"
               placeholder="เช่น 2025"
               value={endYear}
-              onChange={e => setEndYear(e.target.value)}
+              onChange={(e) => setEndYear(e.target.value)}
               className="border rounded px-3 py-2 w-36"
             />
           </div>
@@ -107,7 +121,7 @@ export default function OATrendPage() {
           </div>
         </div>
 
-        {/* แสดงผลข้อมูล */}
+        {/* 🔹 แสดงผลข้อมูล */}
         {loading ? (
           <div className="text-center py-6 text-gray-600">กำลังโหลด...</div>
         ) : !data ? (
@@ -166,6 +180,7 @@ export default function OATrendPage() {
               </table>
             </div>
 
+            {/* ✅ หมายเหตุ */}
             <p className="text-sm text-gray-500 mt-3 text-center">
               เงื่อนไข OA: yesCount ≥ 3 หรือ resultText มีคำว่า “เข่าเสื่อม”
               {data.filter?.startYear && data.filter?.endYear && (
@@ -176,5 +191,5 @@ export default function OATrendPage() {
         )}
       </div>
     </div>
-  );
+  )
 }

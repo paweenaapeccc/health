@@ -136,7 +136,7 @@ export default function AdminNavbar() {
               {openReport && (
                 <div
                   role="menu"
-                  className="absolute right-0 mt-2 w-72 rounded-xl border bg-white shadow-lg p-2"
+                  className="absolute right-0 mt-2 w-100 rounded-xl border bg-white shadow-lg p-2"
                 >
                   <Link
                     href="/admin/reports/knee_oa"
@@ -145,7 +145,7 @@ export default function AdminNavbar() {
                       isActive('/admin/reports/knee_oa') ? 'bg-blue-50 font-semibold' : ''
                     }`}
                   >
-                    • จำนวนผู้สูงอายุ OA แยกเพศและช่วงอายุ
+                    • รายงานจำนวนผู้สูงอายุ
                   </Link>
                   <Link
                     href="/admin/reports/trend"
@@ -154,7 +154,7 @@ export default function AdminNavbar() {
                       isActive('/admin/reports/trend') ? 'bg-blue-50 font-semibold' : ''
                     }`}
                   >
-                    • แนวโน้มภาวะ OA รายปี
+                    • รายงานแนวโน้มผู้สูงอายุที่มีภาวะข้อเข่าเสื่อมต่อปี
                   </Link>
                 </div>
               )}

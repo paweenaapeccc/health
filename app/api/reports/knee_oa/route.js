@@ -11,7 +11,7 @@ const AGE_BANDS = [
 
 export async function GET(req) {
   try {
-    // ✅ ตรวจสอบ token (กันเข้าถึงโดยไม่ได้ล็อกอิน)
+    // ✅ ตรวจสอบ token (ป้องกันการเข้าถึงโดยไม่ได้ login)
     const token = (await cookies()).get("token")?.value;
     if (!token)
       return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
@@ -23,14 +23,16 @@ export async function GET(req) {
       return NextResponse.json({ error: "เซสชันไม่ถูกต้อง" }, { status: 401 });
     }
 
+    // ✅ อ่านค่าพารามิเตอร์ช่วงเวลา (optional)
     const { searchParams } = new URL(req.url);
-    const start = searchParams.get("start");
-    const end = searchParams.get("end");
+    const start = searchParams.get("start") || "1900-01-01";
+    const end = searchParams.get("end") || "2100-12-31";
 
     const db = await connectDB();
 
-    // ✅ ดึงข้อมูลผู้สูงอายุ + ผลประเมินล่าสุด
-    const [rows] = await db.query(`
+    // ✅ ดึงข้อมูลผู้สูงอายุ + ผลประเมินล่าสุด (เฉพาะรายการที่มีการประเมินล่าสุดในช่วงที่เลือก)
+    const [rows] = await db.query(
+      `
       SELECT 
         e.elderlyID,
         e.name,
@@ -41,18 +43,22 @@ export async function GET(req) {
         ha.assessmentDate
       FROM elderly e
       LEFT JOIN (
-        SELECT elderlyID, resultText, yesCount, assessmentDate
-        FROM healthassessment
-        WHERE assessmentDate = (
-          SELECT MAX(h2.assessmentDate) 
-          FROM healthassessment h2 
-          WHERE h2.elderlyID = healthassessment.elderlyID
-        )
+        SELECT h1.elderlyID, h1.resultText, h1.yesCount, h1.assessmentDate
+        FROM healthassessment h1
+        INNER JOIN (
+          SELECT elderlyID, MAX(assessmentDate) AS latestDate
+          FROM healthassessment
+          WHERE assessmentDate BETWEEN ? AND ?
+          GROUP BY elderlyID
+        ) latest
+        ON h1.elderlyID = latest.elderlyID AND h1.assessmentDate = latest.latestDate
       ) ha ON e.elderlyID = ha.elderlyID
       ORDER BY e.elderlyID
-    `);
+      `,
+      [start, end]
+    );
 
-    // ✅ เตรียมข้อมูลสรุป
+    // ✅ เตรียมโครงสร้างพื้นฐานสำหรับกราฟและตาราง
     const base = { male: {}, female: {}, unknown: {} };
     AGE_BANDS.forEach((b) => {
       base.male[b.key] = 0;
@@ -63,13 +69,14 @@ export async function GET(req) {
     const totals = Object.fromEntries(AGE_BANDS.map((b) => [b.key, 0]));
     let grand = 0;
 
+    // ✅ ฟังก์ชันหาช่วงอายุ
     const getBand = (age) => {
       for (const b of AGE_BANDS)
         if (age >= b.min && age <= b.max) return b.key;
       return "80+";
     };
 
-    // ✅ จัดกลุ่มความเสี่ยงและรวมสถิติ
+    // ✅ สร้างข้อมูลสรุป + ระบุระดับความเสี่ยง
     const resultData = rows.map((r) => {
       const g =
         r.gender === "male"
@@ -77,6 +84,7 @@ export async function GET(req) {
           : r.gender === "female"
           ? "female"
           : "unknown";
+
       const band = getBand(Number(r.age));
 
       const riskGroup = !r.assessmentDate
@@ -100,6 +108,7 @@ export async function GET(req) {
       };
     });
 
+    // ✅ ส่งผลลัพธ์กลับให้ frontend
     return NextResponse.json({
       bands: AGE_BANDS.map((b) => b.key),
       byGender: base,
@@ -108,7 +117,10 @@ export async function GET(req) {
       list: resultData,
     });
   } catch (err) {
-    console.error("Knee OA API error:", err);
-    return NextResponse.json({ error: "server error" }, { status: 500 });
+    console.error("GET /api/reports/knee_oa error:", err);
+    return NextResponse.json(
+      { error: err.message || "server error" },
+      { status: 500 }
+    );
   }
 }
