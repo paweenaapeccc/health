@@ -153,7 +153,7 @@ export default function KneeOAReportPage() {
                 onClick={load}
                 className="px-4 py-2 rounded bg-blue-600 text-white shadow hover:bg-blue-700 transition"
               >
-                โหลดข้อมูล
+                ค้นหา
               </button>
               <button
                 onClick={downloadCSV}
