@@ -1,159 +1,143 @@
 import { connectDB } from '@/lib/db'
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { jwtVerify } from 'jose'
 
-// ✅ GET /api/elderly?search=...&page=1&pageSize=20
-export async function GET(req) {
+/* ==========================================================
+   ✅ PUT /api/elderly/[id]
+   แก้ไขข้อมูลผู้สูงอายุรายคน
+========================================================== */
+export async function PUT(req, { params }) {
   try {
     const db = await connectDB()
-    const url = new URL(req.url)
-    const search = (url.searchParams.get('search') || '').trim()
-    const page = Math.max(parseInt(url.searchParams.get('page') || '1', 10), 1)
-    const pageSize = Math.min(Math.max(parseInt(url.searchParams.get('pageSize') || '20', 10), 1), 100)
-    const offset = (page - 1) * pageSize
+    const elderlyID = params.id
 
-    const where = []
-    const params = []
-
-    if (search) {
-      const kw = `%${search}%`
-      where.push(`(
-        name LIKE ? OR phonNumber LIKE ? OR citizenID LIKE ? OR
-        address LIKE ? OR subdistrict LIKE ? OR district LIKE ? OR province LIKE ?
-      )`)
-      params.push(kw, kw, kw, kw, kw, kw, kw)
+    if (!elderlyID) {
+      return NextResponse.json({ error: 'missing elderlyID' }, { status: 400 })
     }
-    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
-
-    const [countRows] = await db.execute(
-      `SELECT COUNT(*) AS total FROM elderly ${whereSql}`,
-      params
-    )
-    const total = countRows?.[0]?.total ?? 0
-
-    // ✅ ดึงข้อมูลผู้สูงอายุพร้อมพิกัด
-    const [rows] = await db.execute(
-      `
-      SELECT
-        elderlyID  AS id,
-        userID     AS userId,
-        name,
-        phonNumber,
-        citizenID,
-        birthDate,
-        TIMESTAMPDIFF(YEAR, birthDate, CURDATE()) AS ageYears,
-        gender,
-        address,
-        subdistrict, district, province,
-        latlong,
-        TRIM(SUBSTRING_INDEX(latlong, ',', 1))  AS latitude_text,
-        TRIM(SUBSTRING_INDEX(latlong, ',', -1)) AS longitude_text,
-        height, weight, congenitalDisease, note
-      FROM elderly
-      ${whereSql}
-      ORDER BY elderlyID ASC
-      LIMIT ? OFFSET ?
-      `,
-      [...params, pageSize, offset]
-    )
-
-    return NextResponse.json({
-      ok: true,
-      data: rows,
-      page,
-      pageSize,
-      total,
-      totalPages: Math.max(Math.ceil(total / pageSize), 1),
-    })
-  } catch (error) {
-    console.error('API GET /api/elderly error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
-      { status: 500 }
-    )
-  }
-}
-
-// ✅ POST /api/elderly — เพิ่มข้อมูลผู้สูงอายุพร้อมข้อมูลสุขภาพ
-export async function POST(req) {
-  try {
-    const db = await connectDB()
-    const token = (await cookies()).get('token')?.value
-    if (!token) return NextResponse.json({ error: 'กรุณาเข้าสู่ระบบ' }, { status: 401 })
-
-    const secret = new TextEncoder().encode(process.env.JWT_SECRET)
-    let payload
-    try {
-      ({ payload } = await jwtVerify(token, secret))
-    } catch {
-      return NextResponse.json({ error: 'เซสชันไม่ถูกต้อง' }, { status: 401 })
-    }
-
-    const userId = payload?.userId ?? payload?.id ?? payload?.userID ?? null
-    if (!userId) return NextResponse.json({ error: 'ไม่พบ userId ในเซสชัน' }, { status: 401 })
 
     const body = await req.json()
     const {
-      name, birthDate, gender, address, subdistrict, district, province,
-      citizenID = null, phone, phonNumber, phoneNumber,
-      latitude = null, longitude = null, latlong: latlongFromBody = null,
-      // ✅ ข้อมูลสุขภาพใหม่
-      height = null, weight = null, congenitalDisease = null, note = null
-    } = body || {}
+      name,
+      phoneNumber,
+      citizenID,
+      birthDate,
+      gender,
+      address,
+      subdistrict,
+      district,
+      province,
+      latitude,
+      longitude,
+      latlong,
+      height,
+      weight,
+      congenitalDisease,
+      note,
+    } = body
 
-    // ✅ ตรวจว่าข้อมูลจำเป็นกรอกครบไหม
-    const required = { name, birthDate, gender, address, subdistrict, district, province }
-    for (const [k, v] of Object.entries(required)) {
-      if (!String(v ?? '').trim()) {
-        return NextResponse.json({ error: `กรุณากรอก ${k}` }, { status: 400 })
-      }
+    // ✅ รวมค่าพิกัด
+    let latlongValue = null
+    if (latlong && String(latlong).trim() !== '') {
+      latlongValue = String(latlong).trim()
+    } else if (latitude && longitude) {
+      latlongValue = `${latitude},${longitude}`
     }
 
-    const phoneValue = (phoneNumber ?? phone ?? phonNumber) ?? null
-
-    // ✅ รวมพิกัดเป็น latlong เดียว
-    const latlong =
-      latlongFromBody && String(latlongFromBody).trim() !== ''
-        ? String(latlongFromBody).trim()
-        : (latitude ?? '') !== '' && (longitude ?? '') !== ''
-          ? `${latitude},${longitude}`
-          : null
-
-    // ✅ INSERT ข้อมูลผู้สูงอายุ (รวมสุขภาพ)
-    await db.execute(
+    const [result] = await db.execute(
       `
-      INSERT INTO elderly
-        (userID, name, phonNumber, citizenID, birthDate, gender,
-         address, subdistrict, district, province, latlong,
-         height, weight, congenitalDisease, note)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      UPDATE elderly
+      SET
+        name = ?,
+        phonNumber = ?,
+        citizenID = ?,
+        birthDate = ?,
+        gender = ?,
+        address = ?,
+        subdistrict = ?,
+        district = ?,
+        province = ?,
+        latlong = ?,
+        height = ?,
+        weight = ?,
+        congenitalDisease = ?,
+        note = ?
+      WHERE elderlyID = ?
       `,
       [
-        userId,
-        name,
-        phoneValue,
-        citizenID,
-        birthDate,
-        gender,
-        address,
-        subdistrict,
-        district,
-        province,
-        latlong,
-        height || null,
-        weight || null,
-        congenitalDisease || null,
-        note || null
+        name ?? null,
+        phoneNumber ?? null,
+        citizenID ?? null,
+        birthDate ?? null,
+        gender ?? null,
+        address ?? null,
+        subdistrict ?? null,
+        district ?? null,
+        province ?? null,
+        latlongValue ?? null,
+        height ?? null,
+        weight ?? null,
+        congenitalDisease ?? null,
+        note ?? null,
+        elderlyID,
       ]
     )
 
-    return NextResponse.json({ message: 'เพิ่มข้อมูลผู้สูงอายุสำเร็จ' }, { status: 201 })
-  } catch (error) {
-    console.error('API POST /api/elderly error:', error)
-    return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
-      { status: 500 }
+    if (result.affectedRows === 0) {
+      return NextResponse.json(
+        { error: 'ไม่พบข้อมูลผู้สูงอายุที่ต้องการแก้ไข' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({ ok: true, message: 'อัปเดตข้อมูลสำเร็จ' }, { status: 200 })
+  } catch (err) {
+    console.error('PUT /api/elderly/[id] error:', err)
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดขณะอัปเดตข้อมูล' }, { status: 500 })
+  }
+}
+
+/* ==========================================================
+   ✅ DELETE /api/elderly/[id]
+   ลบข้อมูลผู้สูงอายุรายคน
+========================================================== */
+export async function DELETE(req, { params }) {
+  try {
+    const db = await connectDB()
+    const elderlyID = params.id
+
+    if (!elderlyID) {
+      return NextResponse.json({ error: 'missing elderlyID' }, { status: 400 })
+    }
+
+    // ✅ ตรวจว่ามีข้อมูลนี้อยู่ก่อน
+    const [check] = await db.execute(
+      'SELECT elderlyID FROM elderly WHERE elderlyID = ? LIMIT 1',
+      [elderlyID]
     )
+    if (check.length === 0) {
+      return NextResponse.json({ error: 'ไม่พบข้อมูลผู้สูงอายุที่ต้องการลบ' }, { status: 404 })
+    }
+
+    // ✅ ลบข้อมูลลูกที่อ้างถึง elderlyID ก่อน (เพื่อป้องกัน Foreign Key Error)
+    await db.execute('DELETE FROM assessmentresults WHERE elderlyID = ?', [elderlyID])
+    await db.execute('DELETE FROM healthassessment WHERE elderlyID = ?', [elderlyID])
+
+    // ✅ จากนั้นลบ elderly ได้เลย
+    const [result] = await db.execute(
+      'DELETE FROM elderly WHERE elderlyID = ?',
+      [elderlyID]
+    )
+
+    if (result.affectedRows === 0) {
+      return NextResponse.json(
+        { error: 'ไม่สามารถลบข้อมูลได้' },
+        { status: 500 }
+      )
+    }
+
+    // ✅ ตอบกลับ JSON เสมอ
+    return NextResponse.json({ ok: true, message: 'ลบข้อมูลสำเร็จ' }, { status: 200 })
+  } catch (err) {
+    console.error('DELETE /api/elderly/[id] error:', err)
+    return NextResponse.json({ error: 'เกิดข้อผิดพลาดในการลบข้อมูล' }, { status: 500 })
   }
 }
