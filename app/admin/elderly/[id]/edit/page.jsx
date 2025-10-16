@@ -10,8 +10,7 @@ export default function EditElderlyPage() {
 
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
-  const [showModal, setShowModal] = useState(false) // ✅ modal แจ้งเตือนตรงกลาง
-  const [modalText, setModalText] = useState('')
+  const [modal, setModal] = useState({ show: false, text: '', success: false })
 
   const [formData, setFormData] = useState({
     name: '',
@@ -28,7 +27,7 @@ export default function EditElderlyPage() {
   })
 
   /* ------------------------------------------------------------
-     ✅ แปลง ค.ศ. → พ.ศ.
+     ✅ แปลงวันที่ ค.ศ. → พ.ศ.
   ------------------------------------------------------------ */
   const toThaiDate = (isoDate) => {
     if (!isoDate) return ''
@@ -36,17 +35,20 @@ export default function EditElderlyPage() {
     const year = d.getFullYear() + 543
     const month = String(d.getMonth() + 1).padStart(2, '0')
     const day = String(d.getDate()).padStart(2, '0')
-    return `${year}-${month}-${day}`
+    return `${day}/${month}/${year}`
   }
 
   /* ------------------------------------------------------------
-     ✅ แปลง พ.ศ. → ค.ศ.
+     ✅ แปลงวันที่ พ.ศ. → ค.ศ.
+     รองรับรูปแบบเช่น 01/01/2500 หรือ 1-1-2500
   ------------------------------------------------------------ */
   const toChristianDate = (thaiDate) => {
     if (!thaiDate) return ''
-    const [y, m, d] = thaiDate.split('-')
-    const year = parseInt(y) - 543
-    return `${year}-${m}-${d}`
+    const match = thaiDate.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/)
+    if (!match) return ''
+    const [_, day, month, yearThai] = match
+    const yearAD = parseInt(yearThai) - 543
+    return `${yearAD}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   }
 
   /* ------------------------------------------------------------
@@ -72,15 +74,15 @@ export default function EditElderlyPage() {
           latitude: data.latitude ?? '',
           longitude: data.longitude ?? ''
         })
-      } catch (err) {
-        setModalText('ไม่สามารถโหลดข้อมูลได้')
-        setShowModal(true)
+      } catch {
+        setModal({ show: true, text: 'ไม่สามารถโหลดข้อมูลได้ ❌', success: false })
       } finally {
         setLoading(false)
       }
     }
+
     if (id) load()
-  }, [id, router])
+  }, [id])
 
   /* ------------------------------------------------------------
      ✅ ฟังก์ชัน handleChange
@@ -108,43 +110,85 @@ export default function EditElderlyPage() {
       })
 
       if (res.ok) {
-        setModalText('✅ อัปเดตข้อมูลสำเร็จ')
-        setShowModal(true)
+        setModal({ show: true, text: '✅ อัปเดตข้อมูลสำเร็จ', success: true })
       } else {
         const data = await res.json().catch(() => ({}))
-        setModalText(data?.error || 'เกิดข้อผิดพลาด')
-        setShowModal(true)
+        setModal({ show: true, text: data?.error || 'เกิดข้อผิดพลาด ❌', success: false })
       }
+    } catch {
+      setModal({ show: true, text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ ❌', success: false })
     } finally {
-      // ✅ แก้ตรงนี้: ใช้ setShowModal และ setModalText ที่ถูกต้อง
       setTimeout(() => {
-        setShowModal(false)
-        setModalText('')
         setSubmitting(false)
-      }, 5000)
+      }, 1000)
     }
   }
 
-  if (loading) return <div className="p-6">กำลังโหลดข้อมูล…</div>
+  /* ------------------------------------------------------------
+     ✅ Loading state
+  ------------------------------------------------------------ */
+  if (loading) return <div className="p-6 text-center">⏳ กำลังโหลดข้อมูล…</div>
 
+  /* ------------------------------------------------------------
+     ✅ UI สไตล์ Tailwind
+  ------------------------------------------------------------ */
   const label = 'text-sm font-medium text-slate-700'
   const input =
     'w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
 
-  /* ------------------------------------------------------------
-     ✅ ส่วนแสดงผล UI
-  ------------------------------------------------------------ */
   return (
-    <div className="">
-      {/* ✅ Modal แจ้งเตือนตรงกลาง */}
-      {showModal && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
-          <div className="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm w-full mx-4">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">{modalText}</h2>
+    <div>
+      {/* ✅ Modal แจ้งเตือนตรงกลางดีไซน์ใหม่ */}
+      {modal.show && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm w-full mx-4 border border-gray-200">
+            {/* ✅ Icon */}
+            <div className="flex justify-center mb-4">
+              <div
+                className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                  modal.success ? 'bg-green-100' : 'bg-red-100'
+                }`}
+              >
+                {modal.success ? (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                    stroke="green"
+                    className="w-10 h-10"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    strokeWidth={2}
+                    stroke="red"
+                    className="w-10 h-10"
+                  >
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                )}
+              </div>
+            </div>
+
+            {/* ✅ ข้อความใน Modal */}
+            <h2
+              className={`text-lg font-semibold mb-4 ${
+                modal.success ? 'text-green-700' : 'text-red-700'
+              }`}
+            >
+              {modal.text}
+            </h2>
+
+            {/* ✅ ปุ่มปิด Modal */}
             <button
               onClick={() => {
-                setShowModal(false)
-                if (modalText.includes('สำเร็จ')) router.push('/admin/elderly')
+                setModal({ ...modal, show: false })
+                if (modal.success) router.push('/admin/elderly')
               }}
               className="mt-2 px-6 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
             >
@@ -165,23 +209,55 @@ export default function EditElderlyPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={label}>ชื่อ-สกุล</label>
-              <input name="name" value={formData.name} onChange={handleChange} className={input} required />
+              <input
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                className={input}
+                required
+              />
             </div>
             <div>
               <label className={label}>เบอร์โทรศัพท์</label>
-              <input name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} className={input} />
+              <input
+                name="phoneNumber"
+                value={formData.phoneNumber}
+                onChange={handleChange}
+                className={input}
+              />
             </div>
             <div>
               <label className={label}>รหัสบัตรประชาชน</label>
-              <input name="citizenID" value={formData.citizenID} onChange={handleChange} className={input} />
+              <input
+                name="citizenID"
+                value={formData.citizenID}
+                onChange={handleChange}
+                className={input}
+              />
             </div>
             <div>
-              <label className={label}>วันเกิด (พ.ศ.)</label>
-              <input type="date" name="birthDate" value={formData.birthDate} onChange={handleChange} className={input} />
+              <label className={label}>วันเดือนปีเกิด (พ.ศ.)</label>
+              <input
+                type="text"
+                name="birthDate"
+                placeholder="เช่น 01/01/2500 หรือ 1-1-2500"
+                value={formData.birthDate}
+                onChange={handleChange}
+                className={input}
+                required
+              />
+              <p className="text-xs text-slate-500 mt-1">
+                กรอกเป็นรูปแบบ วัน/เดือน/ปี พ.ศ.
+              </p>
             </div>
             <div>
               <label className={label}>เพศ</label>
-              <select name="gender" value={formData.gender} onChange={handleChange} className={input}>
+              <select
+                name="gender"
+                value={formData.gender}
+                onChange={handleChange}
+                className={input}
+              >
                 <option value="">เลือกเพศ</option>
                 <option value="male">ชาย</option>
                 <option value="female">หญิง</option>
@@ -193,19 +269,39 @@ export default function EditElderlyPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className={label}>ที่อยู่</label>
-              <input name="address" value={formData.address} onChange={handleChange} className={input} />
+              <input
+                name="address"
+                value={formData.address}
+                onChange={handleChange}
+                className={input}
+              />
             </div>
             <div>
               <label className={label}>ตำบล</label>
-              <input name="subdistrict" value={formData.subdistrict} onChange={handleChange} className={input} />
+              <input
+                name="subdistrict"
+                value={formData.subdistrict}
+                onChange={handleChange}
+                className={input}
+              />
             </div>
             <div>
               <label className={label}>อำเภอ</label>
-              <input name="district" value={formData.district} onChange={handleChange} className={input} />
+              <input
+                name="district"
+                value={formData.district}
+                onChange={handleChange}
+                className={input}
+              />
             </div>
             <div>
               <label className={label}>จังหวัด</label>
-              <input name="province" value={formData.province} onChange={handleChange} className={input} />
+              <input
+                name="province"
+                value={formData.province}
+                onChange={handleChange}
+                className={input}
+              />
             </div>
           </div>
 
@@ -215,11 +311,9 @@ export default function EditElderlyPage() {
               <label className={label}>ละติจูด-ลองจิจูด</label>
               <input
                 name="latitude"
-                placeholder="เช่น 14.999999,103.000000"
-                className={input}
-                inputMode="decimal"
                 value={formData.latitude}
                 onChange={handleChange}
+                className={input}
               />
             </div>
           </div>
