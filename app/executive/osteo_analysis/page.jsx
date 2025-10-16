@@ -186,7 +186,7 @@ function OATravelAnalysisPage() {
             type="text"
             value={hospitalLatLong}
             onChange={(e) => setHospitalLatLong(e.target.value)}
-            placeholder="ตัวอย่าง: 15.0055,103.1009"
+            placeholder="ตัวอย่าง: 14.922032142410616, 103.30062461062079"
             className={`w-full border rounded-lg px-3 py-2 text-gray-800 ${
               latErr ? "border-red-400 focus:ring-red-300" : "focus:ring-indigo-300"
             }`}
