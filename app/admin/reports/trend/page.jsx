@@ -14,6 +14,7 @@ export default function OATrendPage() {
   const [startYear, setStartYear] = useState('')
   const [endYear, setEndYear] = useState('')
 
+  // ✅ โหลดข้อมูลจาก API
   const load = async () => {
     setLoading(true)
     try {
@@ -37,6 +38,7 @@ export default function OATrendPage() {
     load()
   }, [])
 
+  // ✅ เตรียมข้อมูลสำหรับกราฟ
   const chartData = useMemo(() => {
     if (!data?.series) return []
     return data.series.map((r) => ({
@@ -45,23 +47,20 @@ export default function OATrendPage() {
     }))
   }, [data])
 
+  // ✅ ดาวน์โหลด CSV
   const downloadCSV = () => {
-    if (!data?.series) return
-    const headers = ['ปี', 'จำนวนผู้มี OA']
-    const lines = [headers.join(',')]
-    chartData.forEach((r) => {
-      lines.push([r.year, r.count].join(','))
-    })
+    if (!chartData.length) return
+    const headers = ['ปี', 'จำนวนผู้มีภาวะข้อเข่าเสื่อม']
+    const rows = chartData.map(r => [r.year, r.count])
     const total = chartData.reduce((a, b) => a + b.count, 0)
-    lines.push(['รวม', total].join(','))
+    rows.push(['รวม', total])
 
-    const blob = new Blob([`\ufeff${lines.join('\n')}`], {
-      type: 'text/csv;charset=utf-8;',
-    })
+    const csvContent = [headers, ...rows].map(e => e.join(',')).join('\n')
+    const blob = new Blob([`\ufeff${csvContent}`], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'oa-trend-report.csv'
+    a.download = 'OA_trend_report.csv'
     a.click()
     URL.revokeObjectURL(url)
   }
@@ -74,28 +73,17 @@ export default function OATrendPage() {
     )
   }
 
+  // ✅ UI หลัก
   return (
-    <div className="">
-      <div
-        id="trend-report"
-        className="mx-auto max-w-6xl bg-white p-8 rounded-2xl shadow-xl"
-      >
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
-          <h1 className="text-2xl font-bold text-gray-800">
-            รายงานแนวโน้มภาวะข้อเข่าเสื่อม (รายปี)
-          </h1>
-          <div className="flex gap-2 mt-3 sm:mt-0">
-            <button
-              onClick={downloadCSV}
-              className="px-4 py-2 rounded border bg-gray-100 hover:bg-gray-200 transition text-sm"
-            >
-              ดาวน์โหลด CSV
-            </button>
-          </div>
-        </div>
+    <div className="max-w-6xl mx-auto p-6">
+      {/* กล่องสีขาวครอบทั้งหมด */}
+      <div className="bg-white border border-gray-200 shadow-lg rounded-2xl p-8 space-y-6">
+        <h1 className="text-3xl font-bold text-center text-gray-800 mb-4">
+          รายงานแนวโน้มภาวะข้อเข่าเสื่อม (รายปี)
+        </h1>
 
         {/* 🔹 ฟิลเตอร์เลือกปี */}
-        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end mb-8">
+        <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end justify-center">
           <div>
             <label className="block text-sm mb-1">ตั้งแต่ปี</label>
             <input
@@ -116,30 +104,36 @@ export default function OATrendPage() {
               className="border rounded px-3 py-2 w-36"
             />
           </div>
-          <button
-            onClick={load}
-            className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700 transition"
-          >
-            โหลดข้อมูล
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={load}
+              className="px-5 py-2 rounded bg-blue-600 text-white shadow hover:bg-blue-700 transition"
+            >
+              ค้นหา
+            </button>
+            <button
+              onClick={downloadCSV}
+              disabled={!chartData.length}
+              className="px-5 py-2 rounded border bg-gray-50 hover:bg-gray-100 transition"
+            >
+              ดาวน์โหลด CSV
+            </button>
+          </div>
         </div>
 
-        {/* 🔹 ส่วนข้อมูล */}
+        {/* 🔹 แสดงผลข้อมูล */}
         {loading ? (
-          <div>กำลังโหลด...</div>
+          <div className="text-center py-6 text-gray-600">กำลังโหลด...</div>
         ) : !data ? (
-          <div className="text-red-600">โหลดข้อมูลไม่สำเร็จ</div>
+          <div className="text-center text-red-600">โหลดข้อมูลไม่สำเร็จ</div>
         ) : (
           <>
-            {/* 🔹 กราฟแนวโน้ม */}
-            <div className="border rounded-lg p-6 mb-8 bg-white shadow">
+            {/* ✅ กราฟแนวโน้ม */}
+            <div className="border rounded-lg p-4 bg-white">
               <div className="font-semibold mb-2">แนวโน้มรายปี</div>
               <div className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <LineChart
-                    data={chartData}
-                    margin={{ top: 10, right: 20, left: 0, bottom: 10 }}
-                  >
+                  <LineChart data={chartData} margin={{ top: 10, right: 20, left: 0, bottom: 10 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="year" />
                     <YAxis allowDecimals={false} />
@@ -148,7 +142,7 @@ export default function OATrendPage() {
                     <Line
                       type="monotone"
                       dataKey="count"
-                      name="จำนวนผู้มี OA"
+                      name="จำนวนผู้มีภาวะข้อเข่าเสื่อม"
                       stroke="#0ea5e9"
                       strokeWidth={3}
                       dot
@@ -158,8 +152,8 @@ export default function OATrendPage() {
               </div>
             </div>
 
-            {/* 🔹 ตารางสรุป */}
-            <div className="overflow-x-auto border rounded-lg bg-white shadow mb-6">
+            {/* ✅ ตารางข้อมูล */}
+            <div className="overflow-x-auto border rounded-lg bg-white">
               <table className="min-w-full">
                 <thead className="bg-gray-100">
                   <tr>
@@ -186,8 +180,8 @@ export default function OATrendPage() {
               </table>
             </div>
 
-            {/* 🔹 หมายเหตุ */}
-            <p className="text-sm text-gray-500 mt-2">
+            {/* ✅ หมายเหตุ */}
+            <p className="text-sm text-gray-500 mt-3 text-center">
               เงื่อนไข OA: yesCount ≥ 3 หรือ resultText มีคำว่า “เข่าเสื่อม”
               {data.filter?.startYear && data.filter?.endYear && (
                 <> | ช่วงปี: {data.filter.startYear}–{data.filter.endYear}</>

@@ -30,7 +30,7 @@ export async function GET(req) {
 
     const db = await connectDB();
 
-    // ✅ ดึงข้อมูลผู้สูงอายุ + ผลประเมิน “ล่าสุด” เท่านั้น
+    // ✅ ดึงข้อมูลผู้สูงอายุ + ผลประเมินล่าสุด (เฉพาะรายการที่มีการประเมินล่าสุดในช่วงที่เลือก)
     const [rows] = await db.query(
       `
       SELECT 
@@ -58,7 +58,7 @@ export async function GET(req) {
       [start, end]
     );
 
-    // ✅ เตรียมข้อมูลพื้นฐานสำหรับกราฟและตาราง
+    // ✅ เตรียมโครงสร้างพื้นฐานสำหรับกราฟและตาราง
     const base = { male: {}, female: {}, unknown: {} };
     AGE_BANDS.forEach((b) => {
       base.male[b.key] = 0;
@@ -69,6 +69,7 @@ export async function GET(req) {
     const totals = Object.fromEntries(AGE_BANDS.map((b) => [b.key, 0]));
     let grand = 0;
 
+    // ✅ ฟังก์ชันหาช่วงอายุ
     const getBand = (age) => {
       for (const b of AGE_BANDS)
         if (age >= b.min && age <= b.max) return b.key;
@@ -86,12 +87,11 @@ export async function GET(req) {
 
       const band = getBand(Number(r.age));
 
-      const riskGroup =
-        !r.assessmentDate
-          ? "ยังไม่ประเมิน"
-          : r.yesCount >= 3 || (r.resultText || "").includes("เข่าเสื่อม")
-          ? "เสี่ยงสูง"
-          : "ไม่เสี่ยง";
+      const riskGroup = !r.assessmentDate
+        ? "ยังไม่ประเมิน"
+        : r.yesCount >= 3 || (r.resultText || "").includes("เข่าเสื่อม")
+        ? "เสี่ยงสูง"
+        : "ไม่เสี่ยง";
 
       base[g][band] += 1;
       totals[band] += 1;
@@ -108,7 +108,7 @@ export async function GET(req) {
       };
     });
 
-    // ✅ ส่งผลลัพธ์กลับไปยัง frontend
+    // ✅ ส่งผลลัพธ์กลับให้ frontend
     return NextResponse.json({
       bands: AGE_BANDS.map((b) => b.key),
       byGender: base,
