@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+/* ------------------------------------------------------------
+   ✅ ClientOnly — ป้องกันการ render ฝั่ง server ก่อน DOM โหลด
+------------------------------------------------------------ */
 function ClientOnly({ children }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -10,6 +13,9 @@ function ClientOnly({ children }) {
   return children;
 }
 
+/* ------------------------------------------------------------
+   ✅ หน้าเพิ่มข้อมูลผู้สูงอายุ (Member/Admin)
+------------------------------------------------------------ */
 export default function AddElderlyMemberPage() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -29,7 +35,9 @@ export default function AddElderlyMemberPage() {
     longitude: "",
   });
 
-  // ✅ แปลงข้อความวันเกิด (พ.ศ.) → ค.ศ.
+  /* ------------------------------------------------------------
+     ✅ แปลงวันที่จาก พ.ศ. → ค.ศ.
+  ------------------------------------------------------------ */
   const parseThaiDateInput = (text) => {
     if (!text) return "";
     const match = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/);
@@ -42,10 +50,16 @@ export default function AddElderlyMemberPage() {
     )}`;
   };
 
+  /* ------------------------------------------------------------
+     ✅ handleChange
+  ------------------------------------------------------------ */
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  /* ------------------------------------------------------------
+     ✅ handleSubmit (POST → /api/elderly)
+  ------------------------------------------------------------ */
   const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitting(true);
@@ -61,7 +75,6 @@ export default function AddElderlyMemberPage() {
       });
 
       if (res.ok) {
-        // ✅ แสดง modal ตรงกลางแทน alert
         setModal({
           show: true,
           text: "เพิ่มข้อมูลผู้สูงอายุสำเร็จ ✅",
@@ -86,25 +99,39 @@ export default function AddElderlyMemberPage() {
     }
   };
 
+  /* ------------------------------------------------------------
+     ✅ ปิด Modal
+  ------------------------------------------------------------ */
   const closeModal = () => {
     setModal({ ...modal, show: false });
     if (modal.success) router.push("/admin/elderly");
   };
 
+  /* ------------------------------------------------------------
+     ✅ UI Variables
+  ------------------------------------------------------------ */
   const label = "text-sm font-medium text-slate-700";
   const input =
     "w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition";
   const sectionTitle = "text-lg font-semibold text-slate-900 mb-4";
 
+  /* ------------------------------------------------------------
+     ✅ Render UI
+  ------------------------------------------------------------ */
   return (
     <div className="">
+      {/* ✅ Modal แจ้งเตือนตรงกลางดีไซน์ใหม่ */}
       {modal.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm w-full mx-4 border border-gray-200">
-            {/* ไอคอนเครื่องหมายถูก */}
-            {modal.success ? (
-              <div className="flex justify-center mb-4">
-                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center">
+            {/* ✅ Icon */}
+            <div className="flex justify-center mb-4">
+              <div
+                className={`w-16 h-16 rounded-full flex items-center justify-center ${
+                  modal.success ? "bg-green-100" : "bg-red-100"
+                }`}
+              >
+                {modal.success ? (
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
@@ -119,11 +146,7 @@ export default function AddElderlyMemberPage() {
                       d="M4.5 12.75l6 6 9-13.5"
                     />
                   </svg>
-                </div>
-              </div>
-            ) : (
-              <div className="flex justify-center mb-4">
-                <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center">
+                ) : (
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
                     fill="none"
@@ -138,10 +161,11 @@ export default function AddElderlyMemberPage() {
                       d="M6 18L18 6M6 6l12 12"
                     />
                   </svg>
-                </div>
+                )}
               </div>
-            )}
+            </div>
 
+            {/* ✅ ข้อความใน Modal */}
             <h2
               className={`text-lg font-semibold mb-4 ${
                 modal.success ? "text-green-700" : "text-red-700"
@@ -150,11 +174,9 @@ export default function AddElderlyMemberPage() {
               {modal.text}
             </h2>
 
+            {/* ✅ ปุ่มปิด Modal */}
             <button
-              onClick={() => {
-                setModal({ ...modal, show: false });
-                if (modal.success) router.push("/admin/elderly");
-              }}
+              onClick={closeModal}
               className="mt-2 px-6 py-2 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition"
             >
               ปิด
@@ -163,8 +185,8 @@ export default function AddElderlyMemberPage() {
         </div>
       )}
 
+      {/* ✅ ฟอร์มหลัก */}
       <div className="mx-auto max-w-4xl">
-        {/* Header */}
         <header className="mb-6">
           <h1 className="text-3xl font-bold text-slate-900">
             เพิ่มข้อมูลผู้สูงอายุ (Admin)
@@ -181,7 +203,7 @@ export default function AddElderlyMemberPage() {
             className="rounded-2xl bg-white shadow-md ring-1 ring-slate-100 p-6 md:p-8 space-y-8"
             autoComplete="off"
           >
-            {/* ข้อมูลส่วนตัว */}
+            {/* 🔹 ข้อมูลส่วนตัว */}
             <section>
               <h2 className={sectionTitle}>ข้อมูลส่วนตัว</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -197,7 +219,6 @@ export default function AddElderlyMemberPage() {
                     required
                   />
                 </div>
-
                 <div>
                   <label className={label}>
                     เบอร์โทรศัพท์ <span className="text-red-500">*</span>
@@ -210,7 +231,6 @@ export default function AddElderlyMemberPage() {
                     required
                   />
                 </div>
-
                 <div>
                   <label className={label}>
                     รหัสบัตรประชาชน <span className="text-red-500">*</span>
@@ -223,7 +243,6 @@ export default function AddElderlyMemberPage() {
                     required
                   />
                 </div>
-
                 <div>
                   <label className={label}>
                     วันเดือนปีเกิด (พ.ศ.){" "}
@@ -239,10 +258,9 @@ export default function AddElderlyMemberPage() {
                     required
                   />
                   <p className="text-xs text-slate-500 mt-1">
-                    กรุณากรอกเป็นรูปแบบ วัน/เดือน/ปี พ.ศ.
+                    กรอกเป็นรูปแบบ วัน/เดือน/ปี พ.ศ.
                   </p>
                 </div>
-
                 <div>
                   <label className={label}>
                     เพศ <span className="text-red-500">*</span>
@@ -264,7 +282,7 @@ export default function AddElderlyMemberPage() {
               </div>
             </section>
 
-            {/* ที่อยู่ */}
+            {/* 🔹 ที่อยู่ */}
             <section>
               <h2 className={sectionTitle}>ที่อยู่</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -316,7 +334,7 @@ export default function AddElderlyMemberPage() {
               </div>
             </section>
 
-            {/* พิกัด */}
+            {/* 🔹 พิกัด */}
             <section>
               <h2 className={sectionTitle}>พิกัด</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -332,7 +350,7 @@ export default function AddElderlyMemberPage() {
               </div>
             </section>
 
-            {/* ปุ่ม */}
+            {/* 🔹 ปุ่ม */}
             <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-3 pt-2">
               <button
                 type="button"

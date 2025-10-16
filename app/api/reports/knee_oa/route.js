@@ -11,7 +11,7 @@ const AGE_BANDS = [
 
 export async function GET(req) {
   try {
-    // ✅ ตรวจสอบ token (ป้องกันการเข้าถึงโดยไม่ได้ login)
+    // ✅ ตรวจสอบ token (เพื่อป้องกันการเข้าถึงโดยไม่ได้ login)
     const token = (await cookies()).get("token")?.value;
     if (!token)
       return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
@@ -30,12 +30,13 @@ export async function GET(req) {
 
     const db = await connectDB();
 
-    // ✅ ดึงข้อมูลผู้สูงอายุ + ผลประเมินล่าสุด (เฉพาะรายการที่มีการประเมินล่าสุดในช่วงที่เลือก)
+    // ✅ ดึงข้อมูลผู้สูงอายุ + ผลประเมินล่าสุด (เฉพาะในช่วงที่เลือก)
     const [rows] = await db.query(
       `
       SELECT 
         e.elderlyID,
         e.name,
+        e.citizenID,
         e.gender,
         TIMESTAMPDIFF(YEAR, e.birthDate, CURDATE()) AS age,
         ha.resultText,
@@ -58,12 +59,11 @@ export async function GET(req) {
       [start, end]
     );
 
-    // ✅ เตรียมโครงสร้างพื้นฐานสำหรับกราฟและตาราง
-    const base = { male: {}, female: {}, unknown: {} };
+    // ✅ สร้างโครงสร้างเริ่มต้นสำหรับเพศและช่วงอายุ
+    const base = { male: {}, female: {} };
     AGE_BANDS.forEach((b) => {
       base.male[b.key] = 0;
       base.female[b.key] = 0;
-      base.unknown[b.key] = 0;
     });
 
     const totals = Object.fromEntries(AGE_BANDS.map((b) => [b.key, 0]));
@@ -76,23 +76,20 @@ export async function GET(req) {
       return "80+";
     };
 
-    // ✅ สร้างข้อมูลสรุป + ระบุระดับความเสี่ยง
+    // ✅ ประมวลผลข้อมูล
     const resultData = rows.map((r) => {
-      const g =
-        r.gender === "male"
-          ? "male"
-          : r.gender === "female"
-          ? "female"
-          : "unknown";
-
+      // ใช้เฉพาะ male / female เท่านั้น
+      const g = r.gender === "male" ? "male" : "female";
       const band = getBand(Number(r.age));
 
+      // ✅ ระบุระดับความเสี่ยง
       const riskGroup = !r.assessmentDate
         ? "ยังไม่ประเมิน"
         : r.yesCount >= 3 || (r.resultText || "").includes("เข่าเสื่อม")
         ? "เสี่ยงสูง"
         : "ไม่เสี่ยง";
 
+      // ✅ รวมจำนวนในกลุ่ม
       base[g][band] += 1;
       totals[band] += 1;
       grand += 1;
@@ -100,6 +97,7 @@ export async function GET(req) {
       return {
         elderlyID: r.elderlyID,
         name: r.name,
+        citizenID: r.citizenID,
         gender: r.gender,
         age: r.age,
         riskGroup,
@@ -108,7 +106,7 @@ export async function GET(req) {
       };
     });
 
-    // ✅ ส่งผลลัพธ์กลับให้ frontend
+    // ✅ ส่งข้อมูลกลับให้ frontend
     return NextResponse.json({
       bands: AGE_BANDS.map((b) => b.key),
       byGender: base,

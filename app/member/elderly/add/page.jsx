@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
+/* ------------------------------------------------------------
+   ✅ ClientOnly — ป้องกันการ render ฝั่ง server ก่อน DOM โหลด
+------------------------------------------------------------ */
 function ClientOnly({ children }) {
   const [mounted, setMounted] = useState(false)
   useEffect(() => setMounted(true), [])
@@ -10,9 +13,14 @@ function ClientOnly({ children }) {
   return children
 }
 
+/* ------------------------------------------------------------
+   ✅ หน้าเพิ่มข้อมูลผู้สูงอายุ (Member)
+------------------------------------------------------------ */
 export default function AddElderlyMemberPage() {
   const router = useRouter()
   const [submitting, setSubmitting] = useState(false)
+  const [modal, setModal] = useState({ show: false, message: '', success: false })
+
   const [formData, setFormData] = useState({
     name: '',
     phoneNumber: '',
@@ -27,7 +35,9 @@ export default function AddElderlyMemberPage() {
     longitude: ''
   })
 
-  // ✅ แปลงข้อความวันเกิด (พ.ศ.) → ค.ศ.
+  /* ------------------------------------------------------------
+     ✅ แปลงข้อความวันเกิด (พ.ศ.) → ค.ศ.
+  ------------------------------------------------------------ */
   const parseThaiDateInput = (text) => {
     if (!text) return ''
     const match = text.match(/(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})/)
@@ -37,13 +47,20 @@ export default function AddElderlyMemberPage() {
     return `${yearAD}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
   }
 
+  /* ------------------------------------------------------------
+     ✅ handleChange
+  ------------------------------------------------------------ */
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
+  /* ------------------------------------------------------------
+     ✅ handleSubmit (POST → /api/elderly)
+  ------------------------------------------------------------ */
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
+
     try {
       const res = await fetch('/api/elderly', {
         method: 'POST',
@@ -56,24 +73,71 @@ export default function AddElderlyMemberPage() {
       })
 
       if (res.ok) {
-        alert('เพิ่มข้อมูลผู้สูงอายุสำเร็จ')
-        router.push('/member/elderly')
+        setModal({
+          show: true,
+          message: 'เพิ่มข้อมูลผู้สูงอายุสำเร็จ',
+          success: true
+        })
+        setTimeout(() => router.push('/member/elderly'), 1200)
       } else {
         const data = await res.json().catch(() => ({}))
-        alert(data?.error || 'เกิดข้อผิดพลาด')
+        setModal({
+          show: true,
+          message: data?.error || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล',
+          success: false
+        })
       }
     } finally {
+      // ✅ ปิด modal อัตโนมัติหลัง 1 วินาที
+      setTimeout(() => setModal({ show: false, title: '', message: '', success: false }), 1000)
       setSubmitting(false)
     }
   }
 
+  /* ------------------------------------------------------------
+     ✅ ปิด Modal
+  ------------------------------------------------------------ */
+  const handleCloseModal = () => setModal({ show: false, message: '', success: false })
+
+  /* ------------------------------------------------------------
+     ✅ Style ตัวแปร UI
+  ------------------------------------------------------------ */
   const label = 'text-sm font-medium text-slate-700'
   const input =
     'w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
   const sectionTitle = 'text-lg font-semibold text-slate-900 mb-4'
 
+  /* ------------------------------------------------------------
+     ✅ Render UI
+  ------------------------------------------------------------ */
   return (
-    <div className="">
+    <div className="relative">
+      {/* ✅ Modal ตรงกลาง */}
+      {modal.show && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-[9999]">
+          <div className="bg-white rounded-2xl p-8 shadow-xl max-w-sm w-full mx-4 text-center animate-fadeIn">
+            <h2
+              className={`text-xl font-bold mb-2 ${
+                modal.success ? 'text-green-600' : 'text-red-600'
+              }`}
+            >
+              {modal.success ? 'สำเร็จ' : 'แจ้งเตือน'}
+            </h2>
+            <p className="text-gray-700 mb-4">{modal.message}</p>
+            <button
+              onClick={handleCloseModal}
+              className={`px-6 py-2.5 rounded-xl text-white font-medium shadow transition ${
+                modal.success
+                  ? 'bg-green-600 hover:bg-green-700'
+                  : 'bg-red-500 hover:bg-red-600'
+              }`}
+            >
+              ตกลง
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto max-w-4xl">
         {/* Header */}
         <header className="mb-6">
@@ -83,13 +147,14 @@ export default function AddElderlyMemberPage() {
           </p>
         </header>
 
+        {/* ฟอร์มกรอกข้อมูล */}
         <ClientOnly>
           <form
             onSubmit={handleSubmit}
             className="rounded-2xl bg-white shadow-md ring-1 ring-slate-100 p-6 md:p-8 space-y-8"
             autoComplete="off"
           >
-            {/* ข้อมูลส่วนตัว */}
+            {/* 🔹 ข้อมูลส่วนตัว */}
             <section>
               <h2 className={sectionTitle}>ข้อมูลส่วนตัว</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -103,29 +168,30 @@ export default function AddElderlyMemberPage() {
                     className={input}
                     onChange={handleChange}
                     required
-                    autoComplete="off"
                   />
                 </div>
 
                 <div>
-                  <label className={label}>เบอร์โทรศัพท์<span className="text-red-500">*</span></label>
+                  <label className={label}>
+                    เบอร์โทรศัพท์ <span className="text-red-500">*</span>
+                  </label>
                   <input
                     name="phoneNumber"
                     placeholder="เช่น 0812345678"
                     className={input}
                     onChange={handleChange}
-                    autoComplete="off"
                   />
                 </div>
 
                 <div>
-                  <label className={label}>รหัสบัตรประชาชน<span className="text-red-500">*</span></label>
+                  <label className={label}>
+                    รหัสบัตรประชาชน <span className="text-red-500">*</span>
+                  </label>
                   <input
                     name="citizenID"
                     placeholder="13 หลัก"
                     className={input}
                     onChange={handleChange}
-                    autoComplete="off"
                   />
                 </div>
 
@@ -141,7 +207,6 @@ export default function AddElderlyMemberPage() {
                     value={formData.birthDate}
                     onChange={handleChange}
                     required
-                    autoComplete="off"
                   />
                   <p className="text-xs text-slate-500 mt-1">
                     กรุณากรอกเป็นรูปแบบ วัน/เดือน/ปี พ.ศ.
@@ -158,9 +223,10 @@ export default function AddElderlyMemberPage() {
                     onChange={handleChange}
                     required
                     defaultValue=""
-                    autoComplete="off"
                   >
-                    <option value="" disabled>เลือกเพศ</option>
+                    <option value="" disabled>
+                      เลือกเพศ
+                    </option>
                     <option value="male">ชาย</option>
                     <option value="female">หญิง</option>
                   </select>
@@ -168,7 +234,7 @@ export default function AddElderlyMemberPage() {
               </div>
             </section>
 
-            {/* ที่อยู่ */}
+            {/* 🔹 ที่อยู่ */}
             <section>
               <h2 className={sectionTitle}>ที่อยู่</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -182,7 +248,6 @@ export default function AddElderlyMemberPage() {
                     className={input}
                     onChange={handleChange}
                     required
-                    autoComplete="off"
                   />
                 </div>
 
@@ -196,7 +261,6 @@ export default function AddElderlyMemberPage() {
                     className={input}
                     onChange={handleChange}
                     required
-                    autoComplete="off"
                   />
                 </div>
 
@@ -210,7 +274,6 @@ export default function AddElderlyMemberPage() {
                     className={input}
                     onChange={handleChange}
                     required
-                    autoComplete="off"
                   />
                 </div>
 
@@ -224,13 +287,12 @@ export default function AddElderlyMemberPage() {
                     className={input}
                     onChange={handleChange}
                     required
-                    autoComplete="off"
                   />
                 </div>
               </div>
             </section>
 
-            {/* พิกัด */}
+            {/* 🔹 พิกัด */}
             <section>
               <h2 className={sectionTitle}>พิกัด</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -241,13 +303,12 @@ export default function AddElderlyMemberPage() {
                     placeholder="เช่น 14.999999,103.000000"
                     className={input}
                     onChange={handleChange}
-                    autoComplete="off"
                   />
                 </div>
               </div>
             </section>
 
-            {/* ปุ่มบันทึก */}
+            {/* 🔹 ปุ่มบันทึก */}
             <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-3 pt-2">
               <button
                 type="button"
@@ -263,8 +324,20 @@ export default function AddElderlyMemberPage() {
                 className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 font-medium text-white shadow hover:bg-blue-700 disabled:opacity-60 active:scale-[.99] transition"
               >
                 {submitting && (
-                  <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" aria-hidden="true">
-                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25" />
+                  <svg
+                    className="h-4 w-4 animate-spin"
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                  >
+                    <circle
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                      fill="none"
+                      opacity="0.25"
+                    />
                     <path d="M22 12a10 10 0 0 1-10 10" fill="currentColor" />
                   </svg>
                 )}
@@ -274,6 +347,7 @@ export default function AddElderlyMemberPage() {
           </form>
         </ClientOnly>
 
+        {/* หมายเหตุ */}
         <p className="mt-4 text-center text-xs text-slate-500">
           ข้อมูลจะถูกเก็บรักษาตามนโยบายความเป็นส่วนตัวของระบบ
         </p>
