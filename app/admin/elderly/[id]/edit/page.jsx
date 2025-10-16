@@ -27,7 +27,9 @@ export default function EditElderlyPage() {
     longitude: ''
   })
 
-  // แปลง ค.ศ. → พ.ศ.
+  /* ------------------------------------------------------------
+     ✅ แปลง ค.ศ. → พ.ศ.
+  ------------------------------------------------------------ */
   const toThaiDate = (isoDate) => {
     if (!isoDate) return ''
     const d = new Date(isoDate)
@@ -37,7 +39,9 @@ export default function EditElderlyPage() {
     return `${year}-${month}-${day}`
   }
 
-  // แปลง พ.ศ. → ค.ศ.
+  /* ------------------------------------------------------------
+     ✅ แปลง พ.ศ. → ค.ศ.
+  ------------------------------------------------------------ */
   const toChristianDate = (thaiDate) => {
     if (!thaiDate) return ''
     const [y, m, d] = thaiDate.split('-')
@@ -45,13 +49,16 @@ export default function EditElderlyPage() {
     return `${year}-${m}-${d}`
   }
 
-  // โหลดข้อมูลเดิม
+  /* ------------------------------------------------------------
+     ✅ โหลดข้อมูลผู้สูงอายุเดิม
+  ------------------------------------------------------------ */
   useEffect(() => {
     const load = async () => {
       try {
         const res = await fetch(`/api/elderly/${id}`)
         if (!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ')
         const data = await res.json()
+
         setFormData({
           name: data.name ?? '',
           phoneNumber: data.phoneNumber ?? data.phonNumber ?? '',
@@ -75,13 +82,20 @@ export default function EditElderlyPage() {
     if (id) load()
   }, [id, router])
 
+  /* ------------------------------------------------------------
+     ✅ ฟังก์ชัน handleChange
+  ------------------------------------------------------------ */
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
+  /* ------------------------------------------------------------
+     ✅ ฟังก์ชัน handleSubmit (PUT → /api/elderly/:id)
+  ------------------------------------------------------------ */
   const handleSubmit = async (e) => {
     e.preventDefault()
     setSubmitting(true)
+
     try {
       const res = await fetch(`/api/elderly/${id}`, {
         method: 'PUT',
@@ -92,8 +106,8 @@ export default function EditElderlyPage() {
           birthDate: toChristianDate(formData.birthDate)
         })
       })
+
       if (res.ok) {
-        // ✅ แสดง modal ตรงกลางแทน alert
         setModalText('✅ อัปเดตข้อมูลสำเร็จ')
         setShowModal(true)
       } else {
@@ -102,18 +116,24 @@ export default function EditElderlyPage() {
         setShowModal(true)
       }
     } finally {
-      setSubmitting(false)
+      // ✅ แก้ตรงนี้: ใช้ setShowModal และ setModalText ที่ถูกต้อง
+      setTimeout(() => {
+        setShowModal(false)
+        setModalText('')
+        setSubmitting(false)
+      }, 5000)
     }
   }
 
-  if (loading) {
-    return <div className="p-6">กำลังโหลดข้อมูล…</div>
-  }
+  if (loading) return <div className="p-6">กำลังโหลดข้อมูล…</div>
 
   const label = 'text-sm font-medium text-slate-700'
   const input =
     'w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
 
+  /* ------------------------------------------------------------
+     ✅ ส่วนแสดงผล UI
+  ------------------------------------------------------------ */
   return (
     <div className="">
       {/* ✅ Modal แจ้งเตือนตรงกลาง */}
@@ -141,7 +161,7 @@ export default function EditElderlyPage() {
           onSubmit={handleSubmit}
           className="rounded-2xl bg-white shadow-md ring-1 ring-slate-100 p-6 md:p-8 space-y-6"
         >
-          {/* ข้อมูลพื้นฐาน */}
+          {/* 🔹 ข้อมูลพื้นฐาน */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={label}>ชื่อ-สกุล</label>
@@ -169,7 +189,7 @@ export default function EditElderlyPage() {
             </div>
           </div>
 
-          {/* ข้อมูลที่อยู่ */}
+          {/* 🔹 ที่อยู่ */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className={label}>ที่อยู่</label>
@@ -189,7 +209,7 @@ export default function EditElderlyPage() {
             </div>
           </div>
 
-          {/* พิกัด */}
+          {/* 🔹 พิกัด */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={label}>ละติจูด-ลองจิจูด</label>
@@ -204,19 +224,19 @@ export default function EditElderlyPage() {
             </div>
           </div>
 
-          {/* ปุ่ม */}
+          {/* 🔹 ปุ่ม */}
           <div className="flex gap-3 pt-4">
             <button
               type="button"
               onClick={() => router.push('/admin/elderly')}
-              className="px-5 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition cursor-pointer"
+              className="px-5 py-2 rounded-xl border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition"
             >
               ยกเลิก
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 rounded-xl bg-blue-600 text-white shadow hover:bg-blue-700 disabled:opacity-60 transition cursor-pointer"
+              className="px-5 py-2 rounded-xl bg-blue-600 text-white shadow hover:bg-blue-700 disabled:opacity-60 transition"
             >
               {submitting ? 'กำลังบันทึก...' : 'บันทึกการแก้ไข'}
             </button>

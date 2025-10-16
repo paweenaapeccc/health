@@ -61,7 +61,7 @@ export default function KneeOAScreeningPage() {
     setResultRow(null);
   };
 
-  // ✅ ตรวจสอบเลขบัตร
+  // ✅ ตรวจสอบเลขบัตรประชาชน
   const checkElder = async () => {
     setChecking(true);
     setElderVerified(false);
@@ -85,7 +85,6 @@ export default function KneeOAScreeningPage() {
         };
         setElderInfo(info);
 
-        // ✅ ถ้ามีผลประเมินแล้ว → แสดงผลเลย ไม่ต้องทำซ้ำ
         if (data.assessment) {
           setResultRow({
             elderlyName: info.name,
@@ -106,9 +105,9 @@ export default function KneeOAScreeningPage() {
     }
   };
 
-  // ✅ บันทึกแบบประเมิน (เฉพาะคนที่ยังไม่เคยทำ)
+  // ✅ บันทึกแบบประเมิน
   const submitAssessment = async () => {
-    if (resultRow) return; // ❗ ป้องกันไม่ให้บันทึกซ้ำ
+    if (resultRow) return;
 
     setSaveError("");
     if (!elderVerified) {
@@ -181,13 +180,13 @@ export default function KneeOAScreeningPage() {
     );
 
   return (
-    <div className="min-h-screen flex items-center justify-center ">
+    <div className="min-h-screen flex items-center justify-center">
       <div className="w-full max-w-3xl bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
         <h1 className="text-3xl font-extrabold text-center text-indigo-700 mb-8 tracking-tight">
           แบบประเมินคัดกรองโรคข้อเข่าเสื่อม
         </h1>
 
-        {/* 🔹 ช่องกรอกเลขบัตร */}
+        {/* 🔹 กรอกเลขบัตร */}
         <div className="mb-5">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             เลขบัตรประชาชน <span className="text-red-600">*</span>
@@ -223,8 +222,7 @@ export default function KneeOAScreeningPage() {
           {!elderVerified && checkError && (
             <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3">
               <div className="text-sm text-red-600 flex items-center gap-1">
-                <span>⛔</span>
-                <span>{checkError}</span>
+                ⛔ {checkError}
               </div>
               <button
                 onClick={() => router.push("/member/elderly/add")}
@@ -236,7 +234,7 @@ export default function KneeOAScreeningPage() {
           )}
         </div>
 
-        {/* 🔹 แบบประเมิน (เฉพาะคนที่ยังไม่เคยทำ) */}
+        {/* 🔹 แบบประเมิน */}
         {!resultRow && (
           <>
             <div
@@ -319,7 +317,7 @@ export default function KneeOAScreeningPage() {
           </>
         )}
 
-        {/* 🔹 ถ้ามีผลแล้ว → แสดงผลทันที */}
+        {/* 🔹 แสดงผลพร้อมคำแนะนำ */}
         {resultRow && (
           <div className="mt-8 p-6 rounded-2xl border shadow-md bg-gradient-to-br from-indigo-50 to-purple-50">
             <h2 className="text-xl font-bold text-indigo-800 mb-4 text-center">
@@ -349,7 +347,23 @@ export default function KneeOAScreeningPage() {
               )}
             </div>
 
-            {/* 🔄 ปุ่มกลับไปทำแบบประเมินใหม่ */}
+            {/* ✅ คำแนะนำในการดูแลสุขภาพ */}
+            {resultRow.as_results.includes("มีโอกาสที่จะเป็นโรคข้อเข่าเสื่อม") && (
+              <div className="mt-6 bg-white/80 rounded-xl p-5 border border-indigo-200 shadow-inner">
+                <h3 className="text-lg font-semibold text-indigo-700 mb-2">
+                  💡 คำแนะนำในการดูแลสุขภาพ
+                </h3>
+                <ul className="list-disc list-inside text-gray-700 leading-relaxed space-y-1 text-base">
+                  <li>ควรรักษาน้ำหนักให้อยู่ในเกณฑ์ปกติ เพื่อลดแรงกดที่ข้อเข่า</li>
+                  <li>หลีกเลี่ยงการนั่งพับเพียบ ขัดสมาธิ หรือยอง ๆ เป็นเวลานาน</li>
+                  <li>ออกกำลังกายเบา ๆ เช่น เดิน ว่ายน้ำ หรือปั่นจักรยานวันละ 20–30 นาที</li>
+                  <li>เลือกรับประทานอาหารที่มีแคลเซียมและวิตามินดีเพียงพอ</li>
+                  <li>หากมีอาการปวดบ่อยหรือรุนแรง ควรพบแพทย์เพื่อตรวจเพิ่มเติม</li>
+                </ul>
+              </div>
+            )}
+
+            {/* 🔄 ปุ่มทำแบบประเมินใหม่ */}
             <div className="mt-6 flex justify-center">
               <button
                 onClick={() => {
@@ -363,7 +377,7 @@ export default function KneeOAScreeningPage() {
                 }}
                 className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 shadow-md transition-all"
               >
-                ทำแบบประเมิน
+                ทำแบบประเมินใหม่
               </button>
             </div>
           </div>

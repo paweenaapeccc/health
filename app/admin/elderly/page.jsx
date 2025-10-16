@@ -3,13 +3,17 @@
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 
-const genderLabel = (g) => (g === 'male' ? 'ชาย' : g === 'female' ? 'หญิง' : 'ไม่ระบุ')
+const genderLabel = (g) =>
+  g === 'male' ? 'ชาย' : g === 'female' ? 'หญิง' : 'ไม่ระบุ'
 
 const fmtDate = (d) => {
   if (!d) return '-'
   try {
     const dt = new Date(d)
-    return new Intl.DateTimeFormat('th-TH', { timeZone: 'Asia/Bangkok', dateStyle: 'medium' }).format(dt)
+    return new Intl.DateTimeFormat('th-TH', {
+      timeZone: 'Asia/Bangkok',
+      dateStyle: 'medium',
+    }).format(dt)
   } catch {
     return '-'
   }
@@ -29,17 +33,29 @@ export default function AdminElderlyPage() {
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [modal, setModal] = useState({ show: false, title: '', message: '', onConfirm: null })
+  const [typingTimeout, setTypingTimeout] = useState(null)
+  const [modal, setModal] = useState({
+    show: false,
+    title: '',
+    message: '',
+    onConfirm: null,
+  })
 
-  const totalPages = useMemo(() => Math.max(Math.ceil(total / pageSize), 1), [total, pageSize])
+  const totalPages = useMemo(
+    () => Math.max(Math.ceil(total / pageSize), 1),
+    [total, pageSize]
+  )
 
-  // โหลดข้อมูล
-  const load = async () => {
+  // โหลดข้อมูลจาก API
+  const load = async (searchText = q, pageNum = page) => {
     setLoading(true)
     try {
-      const res = await fetch(`/api/elderly?search=${encodeURIComponent(q)}&page=${page}&pageSize=${pageSize}`, {
-        cache: 'no-store',
-      })
+      const res = await fetch(
+        `/api/elderly?search=${encodeURIComponent(
+          searchText
+        )}&page=${pageNum}&pageSize=${pageSize}`,
+        { cache: 'no-store' }
+      )
       const json = await res.json()
       if (res.ok && (json.ok ?? true)) {
         const data = Array.isArray(json) ? json : json.data
@@ -57,9 +73,21 @@ export default function AdminElderlyPage() {
     }
   }
 
+  // โหลดข้อมูลตอนเปิดหน้า หรือเปลี่ยนหน้า
   useEffect(() => {
     load()
   }, [page])
+
+  // ✅ ค้นหาอัตโนมัติเมื่อพิมพ์ (debounce 500ms)
+  useEffect(() => {
+    if (typingTimeout) clearTimeout(typingTimeout)
+    const timeout = setTimeout(() => {
+      setPage(1)
+      load(q, 1)
+    }, 0)
+    setTypingTimeout(timeout)
+    return () => clearTimeout(timeout)
+  }, [q])
 
   const onSearch = (e) => {
     e.preventDefault()
@@ -67,46 +95,45 @@ export default function AdminElderlyPage() {
     load()
   }
 
-  // ✅ Modal Confirm ตรงกลาง
+  // ✅ Modal Confirm
   const showConfirm = (title, message, onConfirm) => {
     setModal({ show: true, title, message, onConfirm })
   }
 
   const handleDelete = async (id, name) => {
-    showConfirm(
-      'ยืนยันการลบข้อมูล',
-      `ต้องการลบข้อมูลของ "${name}" หรือไม่?`,
-      async () => {
-        try {
-          const res = await fetch(`/api/elderly/${id}`, { method: 'DELETE' })
-          const json = await res.json()
-          if (res.ok && json.ok) {
-            setModal({
-              show: true,
-              title: 'สำเร็จ',
-              message: 'ลบข้อมูลสำเร็จ',
-              onConfirm: () => setModal({ show: false }),
-            })
-            load()
-          } else {
-            setModal({
-              show: true,
-              title: 'เกิดข้อผิดพลาด',
-              message: json.error || 'ลบข้อมูลไม่สำเร็จ',
-              onConfirm: () => setModal({ show: false }),
-            })
-          }
-        } catch (e) {
-          console.error(e)
+    showConfirm('ยืนยันการลบข้อมูล', `ต้องการลบข้อมูลของ "${name}" หรือไม่?`, async () => {
+      try {
+        const res = await fetch(`/api/elderly/${id}`, { method: 'DELETE' })
+        const json = await res.json()
+        if (res.ok && json.ok) {
           setModal({
             show: true,
-            title: 'ข้อผิดพลาด',
-            message: 'เกิดข้อผิดพลาดในการลบข้อมูล',
+            title: 'สำเร็จ',
+            message: 'ลบข้อมูลสำเร็จ',
+            onConfirm: () => setModal({ show: false })
+          })
+          setTimeout(() => {
+            setTimeout(() => setModal({ show: false, title: '', message: '', success: false }), 1000)
+          })
+          load()
+        } else {
+          setModal({
+            show: true,
+            title: 'เกิดข้อผิดพลาด',
+            message: json.error || 'ลบข้อมูลไม่สำเร็จ',
             onConfirm: () => setModal({ show: false }),
           })
         }
+      } catch (e) {
+        console.error(e)
+        setModal({
+          show: true,
+          title: 'ข้อผิดพลาด',
+          message: 'เกิดข้อผิดพลาดในการลบข้อมูล',
+          onConfirm: () => setModal({ show: false }),
+        })
       }
-    )
+    })
   }
 
   return (
@@ -115,7 +142,9 @@ export default function AdminElderlyPage() {
       {modal.show && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
           <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 w-full max-w-md mx-4 text-center space-y-6 animate-fadeIn">
-            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">{modal.title}</h2>
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
+              {modal.title}
+            </h2>
             <p className="text-gray-600 dark:text-gray-300">{modal.message}</p>
             <div className="flex justify-center gap-4 pt-2">
               {modal.onConfirm && modal.title === 'ยืนยันการลบข้อมูล' ? (
@@ -153,7 +182,9 @@ export default function AdminElderlyPage() {
       <div className="rounded-2xl bg-white shadow-lg ring-1 ring-slate-100 p-6 md:p-8 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-800">ข้อมูลผู้สูงอายุ (Admin)</h1>
+          <h1 className="text-3xl font-bold text-gray-800">
+            ข้อมูลผู้สูงอายุ (Admin)
+          </h1>
           <Link
             href="/admin/elderly/add"
             className="px-4 py-2 rounded-lg bg-blue-600 text-white shadow hover:bg-blue-700 transition"
@@ -189,7 +220,8 @@ export default function AdminElderlyPage() {
           <table className="min-w-[1100px] w-full text-sm">
             <thead className="bg-gray-100 text-gray-700">
               <tr>
-                <th className="p-3 text-left w-20">รหัส</th>
+                {/* <th className="p-3 text-left w-20">รหัส</th> */}
+                <th className="p-3 text-left">เลขบัตรประชาชน</th>
                 <th className="p-3 text-left">ชื่อ-สกุล</th>
                 <th className="p-3 text-left">เพศ</th>
                 <th className="p-3 text-left">วันเกิด</th>
@@ -219,10 +251,15 @@ export default function AdminElderlyPage() {
                 rows.map((r) => {
                   const id = r.id ?? r.elderlyID
                   const name = r.name ?? r.fullName
-                  const phone = r.phonNumber ?? r.phoneNumber ?? r.phone ?? '-'
+                  const phone =
+                    r.phoneNumber ?? r.phonNumber ?? r.phone ?? '-'
                   return (
-                    <tr key={id} className="border-t hover:bg-gray-50 transition">
-                      <td className="p-3">{id}</td>
+                    <tr
+                      key={id}
+                      className="border-t hover:bg-gray-50 transition"
+                    >
+                      {/* <td className="p-3">{id}</td> */}
+                      <td className="p-3">{r.citizenID ?? '-'}</td>
                       <td className="p-3">{name}</td>
                       <td className="p-3">{genderLabel(r.gender)}</td>
                       <td className="p-3">{fmtDate(r.birthDate)}</td>
@@ -230,7 +267,9 @@ export default function AdminElderlyPage() {
                       <td className="p-3">{phone}</td>
                       <td className="p-3">{r.address || '-'}</td>
                       <td className="p-3">
-                        {[r.subdistrict, r.district, r.province].filter(Boolean).join(' / ') || '-'}
+                        {[r.subdistrict, r.district, r.province]
+                          .filter(Boolean)
+                          .join(' / ') || '-'}
                       </td>
                       <td className="p-3 text-center">
                         <div className="flex justify-center gap-2">
