@@ -120,7 +120,7 @@ export default function KneeOAReportPage() {
 
   // ✅ UI
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       <div className="max-w-7xl mx-auto py-10 px-4">
         {/* กล่องหลักสีขาวครอบทุกอย่าง */}
         <div className="bg-white shadow-lg rounded-2xl p-8 space-y-8 border border-gray-200">

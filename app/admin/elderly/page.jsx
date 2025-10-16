@@ -22,14 +22,14 @@ function ClientOnly({ children }) {
   return children
 }
 
-export default function MemberElderlyPage() {
+export default function AdminElderlyPage() {
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
   const [pageSize] = useState(20)
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(false)
-  const [modal, setModal] = useState({ show: false, title: '', message: '', onConfirm: null }) // ✅ modal confirm ตรงกลาง
+  const [modal, setModal] = useState({ show: false, title: '', message: '', onConfirm: null })
 
   const totalPages = useMemo(() => Math.max(Math.ceil(total / pageSize), 1), [total, pageSize])
 
@@ -67,7 +67,7 @@ export default function MemberElderlyPage() {
     load()
   }
 
-  // ✅ Modal Confirm แบบตรงกลาง
+  // ✅ Modal Confirm ตรงกลาง
   const showConfirm = (title, message, onConfirm) => {
     setModal({ show: true, title, message, onConfirm })
   }
@@ -153,9 +153,9 @@ export default function MemberElderlyPage() {
       <div className="rounded-2xl bg-white shadow-lg ring-1 ring-slate-100 p-6 md:p-8 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <h1 className="text-3xl font-bold text-gray-800">ข้อมูลผู้สูงอายุ (Member)</h1>
+          <h1 className="text-3xl font-bold text-gray-800">ข้อมูลผู้สูงอายุ (Admin)</h1>
           <Link
-            href="/member/elderly/add"
+            href="/admin/elderly/add"
             className="px-4 py-2 rounded-lg bg-blue-600 text-white shadow hover:bg-blue-700 transition"
           >
             + เพิ่มข้อมูล
@@ -230,11 +230,12 @@ export default function MemberElderlyPage() {
                       <td className="p-3">{phone}</td>
                       <td className="p-3">{r.address || '-'}</td>
                       <td className="p-3">
-                        {[r.subdistrict, r.district, r.province].filter(Boolean).join(' / ') || '-'}</td>
+                        {[r.subdistrict, r.district, r.province].filter(Boolean).join(' / ') || '-'}
+                      </td>
                       <td className="p-3 text-center">
                         <div className="flex justify-center gap-2">
                           <Link
-                            href={`/member/elderly/${id}/edit`}
+                            href={`/admin/elderly/${id}/edit`}
                             className="px-3 py-1.5 rounded-lg bg-yellow-400 text-white hover:bg-yellow-500 text-xs shadow"
                           >
                             แก้ไข
