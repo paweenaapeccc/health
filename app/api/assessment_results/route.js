@@ -117,3 +117,48 @@ export async function POST(req) {
     );
   }
 }
+
+// ---------- GET /api/assessment_results?elderlyID=... ----------
+export async function GET(req) {
+  const { searchParams } = new URL(req.url);
+  const elderlyID = searchParams.get("elderlyID");
+
+  if (!elderlyID) {
+    return NextResponse.json({ message: "elderlyID required" }, { status: 400 });
+  }
+
+  try {
+    const db = await connectDB();
+    const [rows] = await db.execute(
+      `
+      SELECT 
+        ar.id AS resultID,
+        ar.assessmentID,
+        ar.elderlyID,
+        e.name AS elderlyName,
+        ar.as_score,
+        ar.as_results,
+        h.assessmentDate
+      FROM assessmentresults ar
+      LEFT JOIN healthassessment h ON ar.assessmentID = h.assessmentID
+      LEFT JOIN elderly e ON ar.elderlyID = e.elderlyID
+      WHERE ar.elderlyID = ?
+      ORDER BY ar.id DESC
+      LIMIT 1
+      `,
+      [elderlyID]
+    );
+
+    if (rows.length === 0) {
+      return NextResponse.json({ message: "no result found" }, { status: 404 });
+    }
+
+    return NextResponse.json(rows[0]);
+  } catch (err) {
+    console.error("GET /api/assessment_results error:", err);
+    return NextResponse.json(
+      { message: "Internal error", detail: err.message },
+      { status: 500 }
+    );
+  }
+}
