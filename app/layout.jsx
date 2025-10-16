@@ -10,8 +10,16 @@ export const metadata = {
 export default function RootLayout({ children }) {
   return (
     <html lang="en">
+      <head>
+        {/* ✅ เพิ่มส่วนนี้เพื่อโหลด CSS ของ Leaflet Routing Machine จาก CDN */}
+        <link
+          rel="stylesheet"
+          href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css"
+        />
+      </head>
       <body className="bg-gradient-to-br from-blue-300 to-green-300 min-h-screen">
-        <Navbar />        {/* ✅ แสดง navbar ทุกหน้าสาธารณะ (จะซ่อนเองเมื่อ path ขึ้นต้น /member หรือ /admin) */}
+        {/* ✅ Navbar ของคุณ */}
+        <Navbar />
         <main className="p-4">{children}</main>
       </body>
     </html>
