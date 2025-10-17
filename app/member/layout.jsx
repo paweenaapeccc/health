@@ -5,7 +5,7 @@ export default function MemberLayout({ children }) {
   return (
     <div className=" min-h-screen">
       <MemberNavbar />
-      <main className="p-4">{children}</main>
+      <main className="pt-10 px-6 md:px-10 min-h-screen">{children}</main>
     </div>
   );
 }

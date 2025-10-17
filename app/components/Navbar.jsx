@@ -56,16 +56,16 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* ✅ Logo + ชื่อระบบ */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <Image
               src="/logo.jpeg"
               alt="Logo"
-              width={40}
-              height={40}
+              width={42}
+              height={42}
               className="rounded-full"
               priority
             />
-            <span className="font-semibold text-sm sm:text-lg text-gray-900">
+            <span className="font-semibold text-base sm:text-lg text-gray-900">
               ระบบสารสนเทศการดูแลสุขภาพผู้สูงอายุที่มีภาวะข้อเข่าเสื่อม
             </span>
           </div>
