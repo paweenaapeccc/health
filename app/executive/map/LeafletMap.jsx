@@ -13,7 +13,7 @@ import L from 'leaflet'
 import polyline from '@mapbox/polyline'
 import 'leaflet/dist/leaflet.css'
 
-// ✅ ตั้งค่า default marker (กัน error 404)
+// ✅ ตั้งค่า default marker
 delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
@@ -40,7 +40,7 @@ export default function LeafletMap({ elderlyList = [] }) {
   const [routeVisible, setRouteVisible] = useState(false)
   const mapRef = useRef(null)
 
-  // ✅ รีเฟรชขนาดแผนที่เวลาโหลดหรือ resize
+  // ✅ รีเฟรชแผนที่เวลา resize
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
@@ -51,7 +51,7 @@ export default function LeafletMap({ elderlyList = [] }) {
   }, [])
 
   // ✅ ดึงเส้นทางจาก API
-  const fetchRoute = async (start, end) => {
+  const fetchRoute = async (start, end, markerRef) => {
     try {
       const res = await fetch('https://api.openrouteservice.org/v2/directions/driving-car', {
         method: 'POST',
@@ -83,6 +83,9 @@ export default function LeafletMap({ elderlyList = [] }) {
             map.invalidateSize()
           }, 100)
         }
+
+        // ✅ เปิด popup ทันที
+        if (markerRef?.current) markerRef.current.openPopup()
       } else {
         alert('❌ ไม่พบเส้นทางจาก OpenRouteService')
       }
@@ -111,7 +114,6 @@ export default function LeafletMap({ elderlyList = [] }) {
             setTimeout(() => map.invalidateSize(), 300)
           }}
         >
-          {/* ✅ โหลดแผนที่แน่นอน */}
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -128,9 +130,10 @@ export default function LeafletMap({ elderlyList = [] }) {
               if (!e?.latlong) return null
               const [lat, lng] = e.latlong.split(',').map(Number)
               if (isNaN(lat) || isNaN(lng)) return null
+              const markerRef = useRef(null)
 
               return (
-                <Marker key={e.id} position={[lat, lng]}>
+                <Marker key={e.id} position={[lat, lng]} ref={markerRef}>
                   <Popup>
                     <div className="space-y-2">
                       <p>
@@ -140,7 +143,6 @@ export default function LeafletMap({ elderlyList = [] }) {
                         <b>ที่อยู่:</b> {e.address}
                       </p>
 
-                      {/* ✅ แสดงผลประเมิน */}
                       <p className="mt-2 font-semibold bg-gray-100 border border-gray-300 rounded-lg px-3 py-1">
                         {e.assessment_result
                           ? <>🩺 ผลการประเมิน: {e.assessment_result}</>
@@ -148,19 +150,21 @@ export default function LeafletMap({ elderlyList = [] }) {
                       </p>
 
                       <button
-                        onClick={() => fetchRoute([lat, lng], HOSPITAL_LATLNG)}
+                        onClick={() => fetchRoute([lat, lng], HOSPITAL_LATLNG, markerRef)}
                         className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md"
                       >
                         🚗 เส้นทางไปโรงพยาบาลกระสัง
                       </button>
 
                       <button
-                        onClick={() =>
+                        onClick={() => {
+                          // ✅ เปิด popup ก่อนเปิด Google Maps
+                          if (markerRef.current) markerRef.current.openPopup()
                           window.open(
                             `https://www.google.com/maps/dir/?api=1&origin=${lat},${lng}&destination=${HOSPITAL_LATLNG[0]},${HOSPITAL_LATLNG[1]}&travelmode=driving`,
                             '_blank'
                           )
-                        }
+                        }}
                         className="mt-2 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md"
                       >
                         🧭 เปิดนำทางใน Google Maps
@@ -175,7 +179,6 @@ export default function LeafletMap({ elderlyList = [] }) {
             <Polyline positions={routeCoords} color="deepskyblue" weight={6} />
           )}
 
-          {/* ✅ ปุ่มและกล่องข้อมูล */}
           {routeVisible && (
             <>
               <MapButton onClear={clearRoute} />

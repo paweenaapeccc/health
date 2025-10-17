@@ -9,6 +9,7 @@ export default function RegisterPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [showPopup, setShowPopup] = useState(false) // ✅ popup state
   const router = useRouter()
 
   const handleSubmit = async (e) => {
@@ -28,7 +29,7 @@ export default function RegisterPage() {
     let data = {}
     try {
       data = await res.json()
-    } catch (err) {
+    } catch {
       setError('เกิดข้อผิดพลาดขณะเชื่อมต่อ API')
       return
     }
@@ -36,8 +37,11 @@ export default function RegisterPage() {
     if (!res.ok) {
       setError(data.message || 'เกิดข้อผิดพลาด')
     } else {
-      alert('สมัครสมาชิกสำเร็จ')
-      router.push('/login')
+      setShowPopup(true)
+      setTimeout(() => {
+        setShowPopup(false)
+        router.push('/login')
+      }, 3000)
     }
   }
 
@@ -62,7 +66,9 @@ export default function RegisterPage() {
           height={90}
           className="rounded-full shadow-lg border-4 border-white"
         />
-        <p className="text-gray-600 text-sm mt-3">สมัครสมาชิกใหม่เพื่อเริ่มต้นใช้งาน</p>
+        <p className="text-gray-600 text-sm mt-3">
+          สมัครสมาชิกใหม่เพื่อเริ่มต้นใช้งาน
+        </p>
       </div>
 
       {/* ✅ กล่องฟอร์ม */}
@@ -121,6 +127,28 @@ export default function RegisterPage() {
           </Link>
         </div>
       </div>
+
+      {/* ✅ ปุ่มกลับ */}
+      <Link
+        href="/login"
+        className="absolute top-5 left-5 text-teal-800 text-sm hover:underline flex items-center z-20"
+      >
+        <span className="mr-1 text-lg">&larr;</span> กลับเข้าสู่ระบบ
+      </Link>
+
+      {/* ✅ Popup แสดงผลสำเร็จ */}
+      {showPopup && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/30 z-50">
+          <div className="bg-white rounded-xl p-6 shadow-2xl text-center animate-fadeIn">
+            <h3 className="text-xl font-semibold text-teal-700 mb-2">
+              สมัครสมาชิกสำเร็จ!
+            </h3>
+            <p className="text-gray-600">
+              กำลังนำคุณไปยังหน้าเข้าสู่ระบบ...
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

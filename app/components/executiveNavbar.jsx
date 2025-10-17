@@ -16,6 +16,7 @@ export default function ExecutiveNavbar() {
   const [openReport, setOpenReport] = useState(false)
   const reportRef = useRef(null)
 
+  // ✅ ตรวจสอบ session ปัจจุบัน
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -33,8 +34,21 @@ export default function ExecutiveNavbar() {
     checkSession()
   }, [pathname])
 
+  // ✅ ตรวจ active menu
   const isActive = (path) => pathname.startsWith(path)
 
+  // ✅ ปิด dropdown รายงานเมื่อคลิกข้างนอก
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (reportRef.current && !reportRef.current.contains(e.target)) {
+        setOpenReport(false)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [])
+
+  // ✅ ออกจากระบบ
   const handleLogout = async () => {
     await fetch('/api/logout', { method: 'POST', cache: 'no-store' })
     setIsLoggedIn(false)
@@ -43,9 +57,12 @@ export default function ExecutiveNavbar() {
     router.replace('/login')
   }
 
+  // ✅ สไตล์ของเมนู
   const itemCls = (active) =>
     `flex items-center space-x-2 px-3 py-2 rounded-lg transition ${
-      active ? 'bg-blue-200 text-blue-800 font-semibold' : 'text-gray-700 hover:bg-blue-100'
+      active
+        ? 'bg-blue-200 text-blue-800 font-semibold'
+        : 'text-gray-700 hover:bg-blue-100'
     }`
 
   return (
@@ -89,7 +106,10 @@ export default function ExecutiveNavbar() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/executive/map" className={itemCls(isActive('/executive/map'))}>
+                  <Link
+                    href="/executive/map"
+                    className={itemCls(isActive('/executive/map'))}
+                  >
                     <Map size={18} />
                     <span>แผนที่</span>
                   </Link>
@@ -97,6 +117,7 @@ export default function ExecutiveNavbar() {
               </>
             )}
 
+            {/* ✅ เมนูรายงาน */}
             {isLoggedIn && (
               <li className="relative" ref={reportRef}>
                 <button
@@ -111,24 +132,35 @@ export default function ExecutiveNavbar() {
                   <span>รายงาน</span>
                   <ChevronDown
                     size={16}
-                    className={`transition-transform ${openReport ? 'rotate-180' : ''}`}
+                    className={`transition-transform ${
+                      openReport ? 'rotate-180' : ''
+                    }`}
                   />
                 </button>
 
                 {openReport && (
-                  <div className="absolute right-0 mt-2 w-72 rounded-xl border bg-white shadow-lg p-2">
+                  <div className="absolute right-0 mt-2 w-80 rounded-xl border bg-white shadow-lg p-2">
+                    <p className="px-3 py-2 text-gray-500 text-sm border-b">
+                      เลือกประเภทข้อมูลรายงาน
+                    </p>
                     <Link
                       href="/executive/reports/knee_oa"
+                      onClick={() => setOpenReport(false)}
                       className={`block px-3 py-2 rounded-lg hover:bg-gray-50 ${
-                        isActive('/executive/reports/knee_oa') ? 'bg-blue-50 font-semibold' : ''
+                        isActive('/executive/reports/knee_oa')
+                          ? 'bg-blue-50 font-semibold'
+                          : ''
                       }`}
                     >
                       • รายงานจำนวนผู้สูงอายุ
                     </Link>
                     <Link
                       href="/executive/reports/trend"
+                      onClick={() => setOpenReport(false)}
                       className={`block px-3 py-2 rounded-lg hover:bg-gray-50 ${
-                        isActive('/executive/reports/trend') ? 'bg-blue-50 font-semibold' : ''
+                        isActive('/executive/reports/trend')
+                          ? 'bg-blue-50 font-semibold'
+                          : ''
                       }`}
                     >
                       • รายงานแนวโน้มต่อปี
@@ -168,7 +200,7 @@ export default function ExecutiveNavbar() {
           </ul>
         </div>
 
-        {/* 🔹 เมนูมือถือ (Dropdown ทั้งหมด) */}
+        {/* 🔹 เมนูมือถือ */}
         {menuOpen && (
           <div className="md:hidden mt-2 bg-white rounded-xl shadow-md border p-3 space-y-2">
             {isLoggedIn && role === 'executive' && (
@@ -191,7 +223,7 @@ export default function ExecutiveNavbar() {
               </>
             )}
 
-            {/* ✅ รายงาน (Dropdown ย่อยในมือถือ) */}
+            {/* ✅ รายงานในมือถือ */}
             <div>
               <button
                 onClick={() => setOpenReport(!openReport)}
@@ -203,7 +235,9 @@ export default function ExecutiveNavbar() {
                 </div>
                 <ChevronDown
                   size={16}
-                  className={`transition-transform ${openReport ? 'rotate-180' : ''}`}
+                  className={`transition-transform ${
+                    openReport ? 'rotate-180' : ''
+                  }`}
                 />
               </button>
 
@@ -212,7 +246,9 @@ export default function ExecutiveNavbar() {
                   <Link
                     href="/executive/reports/knee_oa"
                     className={`block px-3 py-1.5 rounded-lg text-sm hover:bg-blue-50 ${
-                      isActive('/executive/reports/knee_oa') ? 'bg-blue-100 font-semibold' : ''
+                      isActive('/executive/reports/knee_oa')
+                        ? 'bg-blue-100 font-semibold'
+                        : ''
                     }`}
                     onClick={() => setMenuOpen(false)}
                   >
@@ -221,7 +257,9 @@ export default function ExecutiveNavbar() {
                   <Link
                     href="/executive/reports/trend"
                     className={`block px-3 py-1.5 rounded-lg text-sm hover:bg-blue-50 ${
-                      isActive('/executive/reports/trend') ? 'bg-blue-100 font-semibold' : ''
+                      isActive('/executive/reports/trend')
+                        ? 'bg-blue-100 font-semibold'
+                        : ''
                     }`}
                     onClick={() => setMenuOpen(false)}
                   >
