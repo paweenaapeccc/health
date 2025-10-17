@@ -24,7 +24,7 @@ export default function HomePage() {
   return (
     <div>
       {/* ✅ Layout แบ่งเป็น 2 ฝั่ง */}
-      <div className="flex flex-col md:flex-row items-start justify-center gap-10 px-4 md:px-12 py-16">
+      <div className="flex flex-col md:flex-row items-start justify-center gap-10 px-4 md:px-12 py-7">
         
         {/* ✅ ฝั่งซ้าย — เนื้อหาทั้งหมดของคุณ */}
         <div className="flex-1 w-full max-w-4xl relative">
@@ -36,8 +36,6 @@ export default function HomePage() {
                 <h1 className="text-2xl font-bold text-center text-teal-800">
                   รู้จักโรคข้อเข่าเสื่อม อาการ สาเหตุ พร้อมแนวทางการรักษาอย่างถูกวิธี
                 </h1>
-
-                {/* —— เนื้อหาคงที่ —— */}
 
                 {/* โรคข้อเข่าเสื่อมคืออะไร? */}
                 <p className="text-gray-700 leading-relaxed">
