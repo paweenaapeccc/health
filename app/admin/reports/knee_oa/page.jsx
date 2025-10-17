@@ -124,13 +124,24 @@ export default function KneeOAReportPage() {
     }
   };
 
+
   /* ------------------------------------------------------------
-     ✅ ฟังก์ชันดาวน์โหลด CSV
+     ✅ ฟังก์ชันดาวน์โหลด CSV — จัดรูปแบบตารางให้อ่านง่ายขึ้น
   ------------------------------------------------------------ */
   const downloadCSV = () => {
     if (!data) return;
+
+    const lines = [];
+
+    /* ---------- ส่วนหัวรายงาน ---------- */
+    lines.push("รายงานภาวะข้อเข่าเสื่อม แยกตามเพศและช่วงอายุ");
+    lines.push(`วันที่ออกรายงาน: ${toThaiDate(new Date())}`);
+    lines.push(""); // เว้นบรรทัด
+
+    /* ---------- ส่วนที่ 1: ตารางสรุป ---------- */
     const headers = ["เพศ", ...data.bands, "รวม"];
-    const lines = [headers.join(",")];
+    lines.push(headers.join(","));
+    lines.push("----------------------------------------------------------");
 
     Object.keys(data.byGender).forEach((g) => {
       const row = [
@@ -145,16 +156,54 @@ export default function KneeOAReportPage() {
       ["รวม", ...data.bands.map((b) => data.totals[b]), data.grandTotal].join(",")
     );
 
+    lines.push("----------------------------------------------------------");
+    lines.push("");
+    lines.push("");
+    lines.push("รายชื่อผู้สูงอายุและระดับความเสี่ยง");
+
+    /* ---------- ส่วนที่ 2: รายชื่อผู้สูงอายุ ---------- */
+    const detailHeaders = [
+      "เลขบัตรประชาชน",
+      "ชื่อ-สกุล",
+      "เพศ",
+      "อายุ (ปี)",
+      "กลุ่มความเสี่ยง",
+      "ผลการประเมินล่าสุด",
+      "วันที่ประเมิน",
+    ];
+    lines.push(detailHeaders.join(","));
+    lines.push("----------------------------------------------------------");
+
+    data.list?.forEach((p, i) => {
+      const row = [
+        `="${p.citizenID}"`,
+        p.name,
+        genderLabel(p.gender),
+        p.age,
+        p.riskGroup || "-",
+        p.resultText || "-",
+        toThaiDate(p.assessmentDate),
+      ];
+      lines.push(row.join(","));
+    });
+
+    lines.push("----------------------------------------------------------");
+    lines.push(`รวมทั้งหมด ${data.list?.length || 0} รายชื่อ`);
+
+    /* ---------- สร้างไฟล์ CSV ---------- */
     const blob = new Blob([`\ufeff${lines.join("\n")}`], {
       type: "text/csv;charset=utf-8;",
     });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `knee-oa-report.csv`;
+    a.download = `รายงานภาวะข้อเข่าเสื่อม-${new Date()
+      .toISOString()
+      .slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
+
 
   /* ------------------------------------------------------------
      ✅ เริ่ม Render UI (หลัง useMemo ทั้งหมด)

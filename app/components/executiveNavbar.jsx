@@ -35,7 +35,18 @@ export default function ExecutiveNavbar() {
   }, [pathname])
 
   // ✅ ฟังก์ชันตรวจ active menu
-  const isActive = (path) => pathname.startsWith(path) // ✅ เพิ่ม helper function
+  const isActive = (path) => pathname.startsWith(path)
+
+  // ✅ ปิด dropdown รายงานเมื่อคลิกข้างนอก
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (reportRef.current && !reportRef.current.contains(e.target)) {
+        setOpenReport(false)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [])
 
   // ✅ ออกจากระบบ
   const handleLogout = async () => {
@@ -97,6 +108,7 @@ export default function ExecutiveNavbar() {
               </>
             )}
 
+            {/* ✅ เมนูรายงาน (แก้เฉพาะตรงนี้เท่านั้น) */}
             {isLoggedIn && (
               <li className="relative" ref={reportRef}>
                 <button
@@ -117,8 +129,12 @@ export default function ExecutiveNavbar() {
 
                 {openReport && (
                   <div className="absolute right-0 mt-2 w-80 rounded-xl border bg-white shadow-lg p-2">
+                    <p className="px-3 py-2 text-gray-500 text-sm border-b">
+                      เลือกประเภทข้อมูลรายงาน
+                    </p>
                     <Link
                       href="/executive/reports/knee_oa"
+                      onClick={() => setOpenReport(false)}
                       className={`block px-3 py-2 rounded-lg hover:bg-gray-50 ${
                         isActive('/executive/reports/knee_oa') ? 'bg-blue-50 font-semibold' : ''
                       }`}
@@ -127,6 +143,7 @@ export default function ExecutiveNavbar() {
                     </Link>
                     <Link
                       href="/executive/reports/trend"
+                      onClick={() => setOpenReport(false)}
                       className={`block px-3 py-2 rounded-lg hover:bg-gray-50 ${
                         isActive('/executive/reports/trend') ? 'bg-blue-50 font-semibold' : ''
                       }`}
@@ -137,6 +154,7 @@ export default function ExecutiveNavbar() {
                 )}
               </li>
             )}
+
             {isLoggedIn && (
               <li className="text-sm text-gray-800">
                 สวัสดี, {username}

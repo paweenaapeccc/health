@@ -22,8 +22,11 @@ export default function EditElderlyPage() {
     subdistrict: '',
     district: '',
     province: '',
-    latitude: '',
-    longitude: ''
+    latlong: '', // ✅ ช่องเดียวสำหรับเก็บพิกัด
+    height: '',
+    weight: '',
+    disease: '',
+    note: ''
   })
 
   /* ------------------------------------------------------------
@@ -40,7 +43,6 @@ export default function EditElderlyPage() {
 
   /* ------------------------------------------------------------
      ✅ แปลงวันที่ พ.ศ. → ค.ศ.
-     รองรับรูปแบบเช่น 01/01/2500 หรือ 1-1-2500
   ------------------------------------------------------------ */
   const toChristianDate = (thaiDate) => {
     if (!thaiDate) return ''
@@ -59,11 +61,11 @@ export default function EditElderlyPage() {
       try {
         const res = await fetch(`/api/elderly/${id}`)
         if (!res.ok) throw new Error('โหลดข้อมูลไม่สำเร็จ')
-        const data = await res.json()
+        const { data } = await res.json()
 
         setFormData({
           name: data.name ?? '',
-          phoneNumber: data.phoneNumber ?? data.phonNumber ?? '',
+          phoneNumber: data.phone ?? '',
           citizenID: data.citizenID ?? '',
           birthDate: data.birthDate ? toThaiDate(data.birthDate.slice(0, 10)) : '',
           gender: data.gender ?? '',
@@ -71,8 +73,11 @@ export default function EditElderlyPage() {
           subdistrict: data.subdistrict ?? '',
           district: data.district ?? '',
           province: data.province ?? '',
-          latitude: data.latitude ?? '',
-          longitude: data.longitude ?? ''
+          latlong: data.latlong?.trim?.() || '', // ✅ ดึงค่าพิกัดจาก latlong โดยตรง
+          height: data.height ?? '',
+          weight: data.weight ?? '',
+          disease: data.disease ?? '',
+          note: data.note ?? ''
         })
       } catch {
         setModal({ show: true, text: 'ไม่สามารถโหลดข้อมูลได้ ❌', success: false })
@@ -85,14 +90,14 @@ export default function EditElderlyPage() {
   }, [id])
 
   /* ------------------------------------------------------------
-     ✅ ฟังก์ชัน handleChange
+     ✅ handleChange
   ------------------------------------------------------------ */
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value })
   }
 
   /* ------------------------------------------------------------
-     ✅ ฟังก์ชัน handleSubmit (PUT → /api/elderly/:id)
+     ✅ handleSubmit
   ------------------------------------------------------------ */
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -104,7 +109,7 @@ export default function EditElderlyPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          phone: formData.phoneNumber,
+          phoneNumber: formData.phoneNumber,
           birthDate: toChristianDate(formData.birthDate)
         })
       })
@@ -118,31 +123,22 @@ export default function EditElderlyPage() {
     } catch {
       setModal({ show: true, text: 'ไม่สามารถเชื่อมต่อเซิร์ฟเวอร์ได้ ❌', success: false })
     } finally {
-      setTimeout(() => {
-        setSubmitting(false)
-      }, 1000)
+      setTimeout(() => setSubmitting(false), 1000)
     }
   }
 
-  /* ------------------------------------------------------------
-     ✅ Loading state
-  ------------------------------------------------------------ */
   if (loading) return <div className="p-6 text-center">⏳ กำลังโหลดข้อมูล…</div>
 
-  /* ------------------------------------------------------------
-     ✅ UI สไตล์ Tailwind
-  ------------------------------------------------------------ */
   const label = 'text-sm font-medium text-slate-700'
   const input =
     'w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
 
   return (
     <div>
-      {/* ✅ Modal แจ้งเตือนตรงกลางดีไซน์ใหม่ */}
+      {/* ✅ Modal แจ้งเตือน */}
       {modal.show && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="bg-white rounded-2xl shadow-2xl p-8 text-center max-w-sm w-full mx-4 border border-gray-200">
-            {/* ✅ Icon */}
             <div className="flex justify-center mb-4">
               <div
                 className={`w-16 h-16 rounded-full flex items-center justify-center ${
@@ -174,8 +170,6 @@ export default function EditElderlyPage() {
                 )}
               </div>
             </div>
-
-            {/* ✅ ข้อความใน Modal */}
             <h2
               className={`text-lg font-semibold mb-4 ${
                 modal.success ? 'text-green-700' : 'text-red-700'
@@ -183,8 +177,6 @@ export default function EditElderlyPage() {
             >
               {modal.text}
             </h2>
-
-            {/* ✅ ปุ่มปิด Modal */}
             <button
               onClick={() => {
                 setModal({ ...modal, show: false })
@@ -209,31 +201,15 @@ export default function EditElderlyPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className={label}>ชื่อ-สกุล</label>
-              <input
-                name="name"
-                value={formData.name}
-                onChange={handleChange}
-                className={input}
-                required
-              />
+              <input name="name" value={formData.name} onChange={handleChange} className={input} required />
             </div>
             <div>
               <label className={label}>เบอร์โทรศัพท์</label>
-              <input
-                name="phoneNumber"
-                value={formData.phoneNumber}
-                onChange={handleChange}
-                className={input}
-              />
+              <input name="phoneNumber" value={formData.phoneNumber} onChange={handleChange} className={input} />
             </div>
             <div>
               <label className={label}>รหัสบัตรประชาชน</label>
-              <input
-                name="citizenID"
-                value={formData.citizenID}
-                onChange={handleChange}
-                className={input}
-              />
+              <input name="citizenID" value={formData.citizenID} onChange={handleChange} className={input} />
             </div>
             <div>
               <label className={label}>วันเดือนปีเกิด (พ.ศ.)</label>
@@ -246,18 +222,11 @@ export default function EditElderlyPage() {
                 className={input}
                 required
               />
-              <p className="text-xs text-slate-500 mt-1">
-                กรอกเป็นรูปแบบ วัน/เดือน/ปี พ.ศ.
-              </p>
+              <p className="text-xs text-slate-500 mt-1">กรอกเป็นรูปแบบ วัน/เดือน/ปี พ.ศ.</p>
             </div>
             <div>
               <label className={label}>เพศ</label>
-              <select
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-                className={input}
-              >
+              <select name="gender" value={formData.gender} onChange={handleChange} className={input}>
                 <option value="">เลือกเพศ</option>
                 <option value="male">ชาย</option>
                 <option value="female">หญิง</option>
@@ -269,52 +238,46 @@ export default function EditElderlyPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className={label}>ที่อยู่</label>
-              <input
-                name="address"
-                value={formData.address}
-                onChange={handleChange}
-                className={input}
-              />
+              <input name="address" value={formData.address} onChange={handleChange} className={input} />
             </div>
             <div>
               <label className={label}>ตำบล</label>
-              <input
-                name="subdistrict"
-                value={formData.subdistrict}
-                onChange={handleChange}
-                className={input}
-              />
+              <input name="subdistrict" value={formData.subdistrict} onChange={handleChange} className={input} />
             </div>
             <div>
               <label className={label}>อำเภอ</label>
-              <input
-                name="district"
-                value={formData.district}
-                onChange={handleChange}
-                className={input}
-              />
+              <input name="district" value={formData.district} onChange={handleChange} className={input} />
             </div>
             <div>
               <label className={label}>จังหวัด</label>
-              <input
-                name="province"
-                value={formData.province}
-                onChange={handleChange}
-                className={input}
-              />
+              <input name="province" value={formData.province} onChange={handleChange} className={input} />
+            </div>
+            <div className="md:col-span-2">
+              <label className={label}>ละติจูด-ลองจิจูด</label>
+              <input name="latlong" value={formData.latlong} onChange={handleChange} className={input} />
             </div>
           </div>
 
-          {/* 🔹 พิกัด */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* 🔹 ข้อมูลสุขภาพ */}
+          <div className="border-t border-gray-300 pt-4">
+            <h2 className="text-lg font-semibold text-gray-800 mb-3">ข้อมูลสุขภาพ</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={label}>ส่วนสูง (ซม.)</label>
+                <input name="height" value={formData.height} onChange={handleChange} className={input} />
+              </div>
+              <div>
+                <label className={label}>น้ำหนัก (กก.)</label>
+                <input name="weight" value={formData.weight} onChange={handleChange} className={input} />
+              </div>
+            </div>
             <div>
-              <label className={label}>ละติจูด-ลองจิจูด</label>
-              <input
-                name="latitude"
-                value={formData.latitude}
-                onChange={handleChange}
-                className={input}
-              />
+              <label className={label}>โรคประจำตัว</label>
+              <input name="disease" value={formData.disease} onChange={handleChange} className={input} />
+            </div>
+            <div>
+              <label className={label}>หมายเหตุ</label>
+              <textarea name="note" value={formData.note} onChange={handleChange} className={input} rows={3} />
             </div>
           </div>
 

@@ -86,7 +86,7 @@ export async function GET(req, context) {
 
 /* ==========================================================
    ✅ PUT /api/elderly/[id]
-   แก้ไขข้อมูลผู้สูงอายุรายคน
+   แก้ไขข้อมูลผู้สูงอายุรายคน (เพิ่มรองรับข้อมูลสุขภาพ)
 ========================================================== */
 export async function PUT(req, { params }) {
   try {
@@ -113,9 +113,12 @@ export async function PUT(req, { params }) {
       latlong,
       height,
       weight,
-      congenitalDisease,
+      disease, // ✅ รับจาก frontend
       note,
     } = body
+
+    // ✅ แปลง disease → congenitalDisease ให้ตรงคอลัมน์ในฐานข้อมูล
+    const congenitalDisease = disease ?? null
 
     // ✅ รวมค่าพิกัด
     let latlongValue = null
@@ -139,10 +142,10 @@ export async function PUT(req, { params }) {
         district = ?,
         province = ?,
         latlong = ?,
-        height = ?,
-        weight = ?,
-        congenitalDisease = ?,
-        note = ?
+        height = ?,                -- ✅ ส่วนสูง
+        weight = ?,                -- ✅ น้ำหนัก
+        congenitalDisease = ?,     -- ✅ โรคประจำตัว
+        note = ?                   -- ✅ หมายเหตุ
       WHERE elderlyID = ?
       `,
       [

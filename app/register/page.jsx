@@ -9,6 +9,7 @@ export default function RegisterPage() {
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
+  const [showPopup, setShowPopup] = useState(false) // ✅ เพิ่ม state popup
   const router = useRouter()
 
   const handleSubmit = async (e) => {
@@ -36,8 +37,13 @@ export default function RegisterPage() {
     if (!res.ok) {
       setError(data.message || 'เกิดข้อผิดพลาด')
     } else {
-      alert('สมัครสมาชิกสำเร็จ')
-      router.push('/login')
+      // ❌ ลบ alert ออก
+      // alert('สมัครสมาชิกสำเร็จ')
+      setShowPopup(true) // ✅ แสดง popup
+      setTimeout(() => {
+        setShowPopup(false)
+        router.push('/login')
+      }, 3000) // ปิด popup อัตโนมัติใน 2 วิ แล้วไปหน้า login
     }
   }
 
@@ -129,6 +135,16 @@ export default function RegisterPage() {
       >
         <span className="mr-1 text-lg">&larr;</span> กลับเข้าสู่ระบบ
       </Link>
+
+      {/* ✅ Popup แสดงผลสำเร็จ */}
+      {showPopup && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black/30 z-50">
+          <div className="bg-white rounded-xl p-6 shadow-2xl text-center animate-fadeIn">
+            <h3 className="text-xl font-semibold text-teal-700 mb-2">สมัครสมาชิกสำเร็จ!</h3>
+            <p className="text-gray-600">กำลังนำคุณไปยังหน้าเข้าสู่ระบบ...</p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
