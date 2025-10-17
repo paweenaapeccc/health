@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { Home, LogIn, LogOut, Info, Menu, X } from 'lucide-react'
+import { LogIn, LogOut, Menu, X, Map } from 'lucide-react' // ✅ เพิ่มไอคอน Map
 
 export default function ExecutiveNavbar() {
   const pathname = usePathname()
@@ -12,8 +12,9 @@ export default function ExecutiveNavbar() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [username, setUsername] = useState('')
   const [role, setRole] = useState('')
-  const [menuOpen, setMenuOpen] = useState(false) // ✅ สำหรับเมนูมือถือ
+  const [menuOpen, setMenuOpen] = useState(false)
 
+  // ✅ ตรวจสอบ session
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -31,6 +32,7 @@ export default function ExecutiveNavbar() {
     checkSession()
   }, [pathname])
 
+  // ✅ ออกจากระบบ
   const handleLogout = async () => {
     await fetch('/api/logout', { method: 'POST', cache: 'no-store' })
     setIsLoggedIn(false)
@@ -48,7 +50,7 @@ export default function ExecutiveNavbar() {
     <nav className="fixed top-0 left-0 w-full z-50 bg-white/90 backdrop-blur-md shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
-          {/* ✅ Logo + ชื่อระบบ */}
+          {/* 🔹 โลโก้ + ชื่อระบบ */}
           <div className="flex items-center gap-2">
             <Image src="/logo.jpeg" alt="Logo" width={40} height={40} className="rounded-full" />
             <span className="font-semibold text-sm sm:text-lg text-gray-900">
@@ -56,7 +58,7 @@ export default function ExecutiveNavbar() {
             </span>
           </div>
 
-          {/* ✅ ปุ่ม Hamburger (มือถือ) */}
+          {/* 🔹 ปุ่ม Hamburger (มือถือ) */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="md:hidden p-2 rounded-lg hover:bg-gray-100"
@@ -64,28 +66,40 @@ export default function ExecutiveNavbar() {
             {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
           </button>
 
-          {/* ✅ เมนู Desktop */}
+          {/* 🔹 เมนู Desktop */}
           <ul className="hidden md:flex items-center space-x-6 text-gray-700 font-medium">
             {isLoggedIn && role === 'executive' && (
-              <li>
-                <Link
-                  href="/executive/osteo_analysis"
-                  className={itemCls(pathname.startsWith('/executive/osteo_analysis'))}
-                >
-                  <span>วิเคราะห์ข้อมูล</span>
-                </Link>
-              </li>
-            )}
+              <>
+                <li>
+                  <Link
+                    href="/executive/osteo_analysis"
+                    className={itemCls(pathname.startsWith('/executive/osteo_analysis'))}
+                  >
+                    <span>วิเคราะห์ข้อมูล</span>
+                  </Link>
+                </li>
 
-            <li>
-              <Link
-                href="/executive/about"
-                className={itemCls(pathname === '/executive/about')}
-              >
-                <Info size={20} />
-                <span>เกี่ยวกับเรา</span>
-              </Link>
-            </li>
+                <li>
+                  <Link
+                    href="/executive/analysis_results"
+                    className={itemCls(pathname.startsWith('/executive/analysis_results'))}
+                  >
+                    <span>ผลการวิเคราะห์</span>
+                  </Link>
+                </li>
+
+                {/* ✅ เมนูใหม่: แผนที่ */}
+                <li>
+                  <Link
+                    href="/executive/map"
+                    className={itemCls(pathname.startsWith('/executive/map'))}
+                  >
+                    <Map size={18} />
+                    <span>แผนที่</span>
+                  </Link>
+                </li>
+              </>
+            )}
 
             {isLoggedIn && (
               <li className="text-sm text-gray-800">
@@ -119,43 +133,46 @@ export default function ExecutiveNavbar() {
         </div>
       </div>
 
-      {/* ✅ เมนูมือถือ */}
+      {/* 🔹 เมนูมือถือ */}
       {menuOpen && (
         <div className="md:hidden bg-white border-t border-gray-200 shadow-md">
           <ul className="flex flex-col space-y-2 p-4 text-gray-700 font-medium">
-            <li>
-              <Link
-                href="/executive"
-                onClick={() => setMenuOpen(false)}
-                className={itemCls(pathname === '/executive')}
-              >
-                <Home size={20} />
-                <span>หน้าหลัก</span>
-              </Link>
-            </li>
 
             {isLoggedIn && role === 'executive' && (
-              <li>
-                <Link
-                  href="/executive/osteo_analysis"
-                  onClick={() => setMenuOpen(false)}
-                  className={itemCls(pathname.startsWith('/executive/osteo_analysis'))}
-                >
-                  <span>วิเคราะห์ข้อมูล</span>
-                </Link>
-              </li>
-            )}
+              <>
+                <li>
+                  <Link
+                    href="/executive/osteo_analysis"
+                    onClick={() => setMenuOpen(false)}
+                    className={itemCls(pathname.startsWith('/executive/osteo_analysis'))}
+                  >
+                    <span>วิเคราะห์ข้อมูล</span>
+                  </Link>
+                </li>
 
-            <li>
-              <Link
-                href="/executive/about"
-                onClick={() => setMenuOpen(false)}
-                className={itemCls(pathname === '/executive/about')}
-              >
-                <Info size={20} />
-                <span>เกี่ยวกับเรา</span>
-              </Link>
-            </li>
+                <li>
+                  <Link
+                    href="/executive/analysis_results"
+                    onClick={() => setMenuOpen(false)}
+                    className={itemCls(pathname.startsWith('/executive/analysis_results'))}
+                  >
+                    <span>ผลการวิเคราะห์</span>
+                  </Link>
+                </li>
+
+                {/* ✅ เมนูใหม่: แผนที่ */}
+                <li>
+                  <Link
+                    href="/executive/map"
+                    onClick={() => setMenuOpen(false)}
+                    className={itemCls(pathname.startsWith('/executive/map'))}
+                  >
+                    <Map size={18} />
+                    <span>แผนที่</span>
+                  </Link>
+                </li>
+              </>
+            )}
 
             {isLoggedIn && (
               <li className="text-sm text-gray-800 px-3 py-2">

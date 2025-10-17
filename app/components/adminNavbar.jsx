@@ -95,12 +95,6 @@ export default function AdminNavbar() {
 
           {/* 🔹 เมนู Desktop */}
           <ul className="hidden md:flex items-center space-x-6 text-gray-700 font-medium">
-            <li>
-              <Link href="/admin" className={itemCls(pathname === '/admin')}>
-                <Home size={20} />
-                <span>หน้าหลัก</span>
-              </Link>
-            </li>
 
             {isLoggedIn && role === 'admin' && (
               <li>
@@ -156,13 +150,6 @@ export default function AdminNavbar() {
               </li>
             )}
 
-            <li>
-              <Link href="/admin/about" className={itemCls(pathname === '/admin/about')}>
-                <Info size={20} />
-                <span>เกี่ยวกับเรา</span>
-              </Link>
-            </li>
-
             {isLoggedIn && (
               <li className="text-sm text-gray-800">
                 สวัสดี, {username}
@@ -198,16 +185,6 @@ export default function AdminNavbar() {
       {menuOpen && (
         <div className="md:hidden bg-white border-t border-gray-200 shadow-md">
           <ul className="flex flex-col space-y-2 p-4 text-gray-700 font-medium">
-            <li>
-              <Link
-                href="/admin"
-                onClick={() => setMenuOpen(false)}
-                className={itemCls(pathname === '/admin')}
-              >
-                <Home size={20} />
-                <span>หน้าหลัก</span>
-              </Link>
-            </li>
 
             {isLoggedIn && role === 'admin' && (
               <li>
@@ -252,17 +229,6 @@ export default function AdminNavbar() {
                 </details>
               </li>
             )}
-
-            <li>
-              <Link
-                href="/admin/about"
-                onClick={() => setMenuOpen(false)}
-                className={itemCls(pathname === '/admin/about')}
-              >
-                <Info size={20} />
-                <span>เกี่ยวกับเรา</span>
-              </Link>
-            </li>
 
             {isLoggedIn && (
               <li className="text-sm text-gray-800 px-3 py-2">สวัสดี, {username}</li>
