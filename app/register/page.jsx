@@ -121,14 +121,6 @@ export default function RegisterPage() {
           </Link>
         </div>
       </div>
-
-      {/* ✅ ปุ่มกลับ */}
-      <Link
-        href="/login"
-        className="absolute top-5 left-5 text-teal-800 text-sm hover:underline flex items-center z-20"
-      >
-        <span className="mr-1 text-lg">&larr;</span> กลับเข้าสู่ระบบ
-      </Link>
     </div>
   )
 }

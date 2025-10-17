@@ -81,7 +81,7 @@ export default function AdminNavbar() {
           <div className="flex items-center gap-2">
             <Image src="/logo.jpeg" alt="Logo" width={40} height={40} className="rounded-full" />
             <span className="font-semibold text-sm sm:text-lg text-gray-900">
-              ระบบดูแลสุขภาพผู้สูงอายุที่มีภาวะข้อเข่าเสื่อม
+              ระบบสารสนเทศการดูแลสุขภาพผู้สูงอายุที่มีภาวะข้อเข่าเสื่อม
             </span>
           </div>
 

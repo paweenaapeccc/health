@@ -20,7 +20,9 @@ export default function RootLayout({ children }) {
       <body className="bg-gradient-to-br from-blue-300 to-green-300 min-h-screen">
         {/* ✅ Navbar ของคุณ */}
         <Navbar />
-        <main className="p-4">{children}</main>
+         <main className="pt-10 px-6 md:px-10 min-h-screen">
+        {children}
+      </main>
       </body>
     </html>
   )
