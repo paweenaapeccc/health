@@ -3,13 +3,11 @@ import { NextResponse } from "next/server";
 
 /**
  * GET /api/reports/maps_oa?search=...&page=1&pageSize=20
- * - ดึง elderly + ผล OA ล่าสุด + แตก latlong เป็น latitude/longitude
- * - ค้นหา (ชื่อ, บัตร, เบอร์, ที่อยู่, ตำบล, อำเภอ, จังหวัด)
- * - รองรับแบ่งหน้า
  */
 export async function GET(req) {
+  let db;
   try {
-    const db = await connectDB();
+    db = await connectDB(); // ✅ เชื่อมต่อ pool
     const url = new URL(req.url);
 
     const search = (url.searchParams.get("search") || "").trim();
@@ -20,7 +18,7 @@ export async function GET(req) {
     );
     const offset = (page - 1) * pageSize;
 
-    // where + params (คอลัมน์ตามจริง)
+    // where + params
     let where = "";
     let params = [];
     if (search) {
@@ -37,14 +35,14 @@ export async function GET(req) {
       params = [kw, kw, kw, kw, kw, kw, kw];
     }
 
-    // นับจำนวนทั้งหมด
+    // ✅ นับจำนวนทั้งหมด
     const [cntRows] = await db.execute(
       `SELECT COUNT(*) AS total FROM elderly e ${where}`,
       params
     );
     const total = cntRows?.[0]?.total ?? 0;
 
-    // OA ล่าสุดต่อคน
+    // ✅ ดึงข้อมูล OA ล่าสุด
     const [rows] = await db.execute(
       `
       WITH latest_assess AS (
@@ -57,22 +55,18 @@ export async function GET(req) {
         ) m ON m.elderlyID = a.elderlyID AND m.maxDate = a.assessmentDate
       )
       SELECT
-        e.elderlyID AS id,            -- เช่น ELD001
+        e.elderlyID,
         e.userID,
         e.name,
         e.citizenID,
-        e.phonNumber AS phone,        -- ชื่อฟิลด์ตรงฐาน
+        e.phonNumber AS phone,
         e.birthDate,
         e.gender,
         e.address, e.subdistrict, e.district, e.province,
-        /* แตก latlong "lat, lng" */
         NULLIF(TRIM(SUBSTRING_INDEX(e.latlong, ',', 1)), '') AS latitude,
         NULLIF(TRIM(SUBSTRING_INDEX(e.latlong, ',', -1)), '') AS longitude,
-
-        a.assessmentID,
-        a.assessmentDate,
-        a.yesCount,
-        a.stiffness, a.crepitus,
+        a.assessmentID, a.assessmentDate,
+        a.yesCount, a.stiffness, a.crepitus,
         a.bonyTenderness, a.bonyEnlargement, a.noWarmth
       FROM elderly e
       LEFT JOIN latest_assess la ON la.elderlyID = e.elderlyID
@@ -87,6 +81,9 @@ export async function GET(req) {
     return NextResponse.json({ rows, page, pageSize, total });
   } catch (err) {
     console.error("GET /api/reports/maps_oa error:", err);
-    return NextResponse.json({ error: "โหลดข้อมูลไม่สำเร็จ" }, { status: 500 });
+    return NextResponse.json({ error: "โหลดข้อมูลไม่สำเร็จ", detail: err.message }, { status: 500 });
+  } finally {
+    // ✅ ปิด connection ถ้าไม่ใช้ pool (หรือปล่อยคืน pool)
+    if (db && db.release) db.release();
   }
 }

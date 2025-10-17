@@ -2,6 +2,89 @@ import { connectDB } from '@/lib/db'
 import { NextResponse } from 'next/server'
 
 /* ==========================================================
+   ✅ GET /api/elderly/[id]
+   ดึงข้อมูลผู้สูงอายุรายบุคคล (เพศชาย/หญิง + วันเกิด พ.ศ.ไทย)
+========================================================== */
+export async function GET(req, context) {
+  try {
+    const { id: elderlyID } = await context.params
+    const db = await connectDB()
+
+    if (!elderlyID) {
+      return NextResponse.json({ error: 'missing elderlyID' }, { status: 400 })
+    }
+
+    const [rows] = await db.execute(
+      `
+      SELECT 
+        elderlyID AS id,
+        name,
+        citizenID,
+        phonNumber AS phone,
+        gender,
+        birthDate,
+        TIMESTAMPDIFF(YEAR, birthDate, CURDATE()) AS age,
+        address,
+        subdistrict,
+        district,
+        province,
+        latlong,
+        NULLIF(TRIM(SUBSTRING_INDEX(latlong, ',', 1)), '') AS latitude,
+        NULLIF(TRIM(SUBSTRING_INDEX(latlong, ',', -1)), '') AS longitude,
+        height,
+        weight,
+        congenitalDisease AS disease,
+        note
+      FROM elderly
+      WHERE elderlyID = ?
+      LIMIT 1
+      `,
+      [elderlyID]
+    )
+
+    if (rows.length === 0) {
+      return NextResponse.json(
+        { success: false, message: 'ไม่พบข้อมูลผู้สูงอายุ' },
+        { status: 404 }
+      )
+    }
+
+    const r = rows[0]
+
+    // ✅ แปลงเพศ: แสดงเฉพาะ "ชาย" / "หญิง"
+    let genderTh = '-'
+    if (r.gender?.toLowerCase() === 'male') genderTh = 'ชาย'
+    if (r.gender?.toLowerCase() === 'female') genderTh = 'หญิง'
+
+    // ✅ แปลงวันเกิดเป็นวันที่ไทย
+    let birthTh = '-'
+    if (r.birthDate) {
+      const date = new Date(r.birthDate)
+      const thYear = date.getFullYear() + 543
+      const months = [
+        'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+        'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+      ]
+      birthTh = `${date.getDate()} ${months[date.getMonth()]} ${thYear}`
+    }
+
+    const data = {
+      ...r,
+      genderTh,
+      birthTh,
+    }
+
+    return NextResponse.json({ success: true, data }, { status: 200 })
+  } catch (err) {
+    console.error('GET /api/elderly/[id] error:', err)
+    return NextResponse.json(
+      { success: false, message: 'เกิดข้อผิดพลาดในการดึงข้อมูล' },
+      { status: 500 }
+    )
+  }
+}
+
+/* ==========================================================
    ✅ PUT /api/elderly/[id]
    แก้ไขข้อมูลผู้สูงอายุรายคน
 ========================================================== */
@@ -122,16 +205,10 @@ export async function DELETE(req, { params }) {
     await db.execute('DELETE FROM healthassessment WHERE elderlyID = ?', [elderlyID])
 
     // ✅ จากนั้นลบ elderly ได้เลย
-    const [result] = await db.execute(
-      'DELETE FROM elderly WHERE elderlyID = ?',
-      [elderlyID]
-    )
+    const [result] = await db.execute('DELETE FROM elderly WHERE elderlyID = ?', [elderlyID])
 
     if (result.affectedRows === 0) {
-      return NextResponse.json(
-        { error: 'ไม่สามารถลบข้อมูลได้' },
-        { status: 500 }
-      )
+      return NextResponse.json({ error: 'ไม่สามารถลบข้อมูลได้' }, { status: 500 })
     }
 
     // ✅ ตอบกลับ JSON เสมอ

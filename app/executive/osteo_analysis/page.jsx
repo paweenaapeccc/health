@@ -1,39 +1,32 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 
 const ENDPOINT = "/api/reports/maps_oa";
+const ELDERLY_API = "/api/elderly"; // ✅ endpoint สำหรับดึงข้อมูลรายบุคคล
 
-/** ---------- Helpers ---------- **/
+/* ---------- Helper ---------- */
 const toNumber = (v) =>
   v === null || v === undefined || v === "" ? null : Number(v);
 
-/** ✅ คำนวณระยะทางแบบเส้นตรง (Haversine) */
 function haversineKm(lat1, lon1, lat2, lon2) {
   if ([lat1, lon1, lat2, lon2].some((x) => x == null || Number.isNaN(Number(x))))
     return null;
-
-  const R = 6371; // รัศมีโลก (กม.)
+  const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
-
   const a =
     Math.sin(dLat / 2) ** 2 +
     Math.cos((lat1 * Math.PI) / 180) *
       Math.cos((lat2 * Math.PI) / 180) *
       Math.sin(dLon / 2) ** 2;
-
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
-
-/** ✅ ปรับระยะทางให้ใกล้เคียงระยะบนถนนจริง (ประมาณการ) */
 function roadDistanceApprox(lat1, lon1, lat2, lon2) {
   const straight = haversineKm(lat1, lon1, lat2, lon2);
-  return straight ? straight * 1.3 : null; // คูณ 1.3 เพื่อประมาณระยะทางขับรถจริง
+  return straight ? straight * 1.3 : null;
 }
-
-/** ✅ นับจำนวนอาการ OA */
 function calcYesCount(row) {
   const keys = [
     "stiffness",
@@ -44,316 +37,241 @@ function calcYesCount(row) {
   ];
   return keys.reduce((acc, k) => acc + (row?.[k] ? 1 : 0), 0);
 }
-
-/** ✅ ระดับความรุนแรงของ OA */
 function oaSeverity(yesCount) {
   if (yesCount >= 4) return "รุนแรง";
   if (yesCount >= 2) return "ปานกลาง";
   return "น้อย/ไม่มี";
 }
-
-/** ✅ ตัดสินใจการเดินทาง */
-function decideTravel({ distanceKm, severity, t }) {
-  if (distanceKm == null)
-    return { decision: "ต้องตรวจสอบ", reason: "ไม่มีพิกัด" };
-
-  const far = distanceKm > t.maxSelfTravelKm;
-  const midFar = distanceKm > t.considerEscortKm;
-
-  if (distanceKm > t.forcePickupKm || (severity === "รุนแรง" && far)) {
-    return { decision: "ให้รพ.ไปรับ", reason: "OA รุนแรงหรือระยะไกล" };
+function carePlan(severity) {
+  switch (severity) {
+    case "รุนแรง":
+      return [
+        "ออกกำลังกายเบา ๆ เช่น เดินหรือยืดเหยียด",
+        "ตรวจข้อเข่าเดือนละครั้ง",
+        "ให้โรงพยาบาลติดตามอาการต่อเนื่อง",
+      ];
+    case "ปานกลาง":
+      return [
+        "ออกกำลังกายเสริมกล้ามเนื้อขา",
+        "ควบคุมน้ำหนัก",
+        "ประเมินอาการทุก 3 เดือน",
+      ];
+    default:
+      return [
+        "ส่งเสริมการเคลื่อนไหว",
+        "รับประทานอาหารครบ 5 หมู่",
+        "ตรวจสุขภาพประจำปี",
+      ];
   }
-  if (severity === "ปานกลาง" || midFar) {
-    return {
-      decision: "พิจารณา/ญาติพามา",
-      reason: "OA ปานกลางหรือระยะกลาง",
-    };
-  }
-  return { decision: "เดินทางเอง", reason: "ใกล้ + OA น้อย" };
 }
 
-/** ✅ helper แปลงค่าพิกัดให้ปลอดภัย */
-function fmtCoord(val) {
-  const num = Number(val);
-  return isNaN(num) ? null : num.toFixed(5);
-}
-
-/** ---------- Main Page ---------- **/
+/* ---------- Main Page ---------- */
 function OATravelAnalysisPage() {
   const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
-  const [q, setQ] = useState("");
-  const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
-  const [total, setTotal] = useState(0);
+  const [filterSeverity, setFilterSeverity] = useState("ทั้งหมด");
+  const [selectedPerson, setSelectedPerson] = useState(null);
+  const [personDetail, setPersonDetail] = useState(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
 
-  // ✅ พิกัดโรงพยาบาล
-  const [hospitalLatLong, setHospitalLatLong] = useState("14.921865811051898, 103.30055440886561");
-  const [latErr, setLatErr] = useState("");
+  const [hospitalLatLong] = useState("14.921865811051898,103.30055440886561");
 
-  // ✅ เกณฑ์ระยะทาง
-  const [maxSelfTravelKm, setMaxSelfTravelKm] = useState(5);
-  const [considerEscortKm, setConsiderEscortKm] = useState(10);
-  const [forcePickupKm, setForcePickupKm] = useState(20);
+  const tableRef = useRef(null);
 
-  const thresholds = { maxSelfTravelKm, considerEscortKm, forcePickupKm };
-
-  /** โหลดข้อมูลจาก API */
-  const load = async (opt = {}) => {
-    setLoading(true);
-    try {
-      const url = new URL(ENDPOINT, window.location.origin);
-      url.searchParams.set("page", String(opt.page ?? page));
-      url.searchParams.set("pageSize", String(pageSize));
-      if (q) url.searchParams.set("search", q);
-
-      const res = await fetch(url.toString(), { cache: "no-store" });
-      const json = await res.json();
-
-      setRows(Array.isArray(json) ? json : json?.rows || []);
-      setTotal(Array.isArray(json) ? json.length ?? 0 : json?.total ?? 0);
-    } catch {
-      setRows([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
-    }
-  };
-
+  // ✅ โหลดข้อมูลผู้สูงอายุทั้งหมด
   useEffect(() => {
-    load({ page: 1 });
+    const load = async () => {
+      setLoading(true);
+      try {
+        const res = await fetch(ENDPOINT, { cache: "no-store" });
+        const json = await res.json();
+        setRows(Array.isArray(json) ? json : json?.rows || []);
+      } catch {
+        setRows([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
   }, []);
 
-  /** ✅ แปลงพิกัดโรงพยาบาล */
-  const parsedHospital = useMemo(() => {
-    if (!hospitalLatLong.includes(",")) {
-      setLatErr("รูปแบบพิกัดไม่ถูกต้อง (ตัวอย่าง: 14.921865811051898, 103.30055440886561)");
-      return { lat: null, lng: null };
-    }
-
-    const [latStr, lngStr] = hospitalLatLong.split(",").map((s) => s.trim());
-    const lat = Number(latStr);
-    const lng = Number(lngStr);
-
-    if (Number.isNaN(lat) || Number.isNaN(lng)) {
-      setLatErr("ค่าพิกัดต้องเป็นตัวเลข เช่น 14.921865811051898, 103.30055440886561");
-      return { lat: null, lng: null };
-    }
-
-    setLatErr("");
-    return { lat, lng };
-  }, [hospitalLatLong]);
-
-  /** enrich ข้อมูลและคำนวณระยะทางจริงแบบประมาณ */
+  // ✅ enrich
   const enriched = useMemo(() => {
-    const { lat: hospitalLat, lng: hospitalLng } = parsedHospital;
+    const [latStr, lngStr] = hospitalLatLong.split(",").map((x) => x.trim());
+    const hLat = Number(latStr),
+      hLng = Number(lngStr);
     return rows.map((r) => {
       const yes = calcYesCount(r);
       const sev = oaSeverity(yes);
-
-      //ใช้สูตรประมาณระยะถนนจริงแทน Haversine เดิม
       const dist = roadDistanceApprox(
-        toNumber(r?.latitude),
-        toNumber(r?.longitude),
-        toNumber(hospitalLat),
-        toNumber(hospitalLng)
+        toNumber(r.latitude),
+        toNumber(r.longitude),
+        hLat,
+        hLng
       );
-
-      const { decision, reason } = decideTravel({
-        distanceKm: dist,
-        severity: sev,
-        t: thresholds,
-      });
-
-      return { ...r, yesCount: yes, severity: sev, distanceKm: dist, decision, reason };
+      return { ...r, yesCount: yes, severity: sev, distanceKm: dist, plan: carePlan(sev) };
     });
-  }, [rows, parsedHospital, maxSelfTravelKm, considerEscortKm, forcePickupKm]);
+  }, [rows]);
 
-  /** filter คำค้นหา */
-  const filtered = useMemo(() => {
-    if (!q) return enriched;
-    const kw = q.toLowerCase();
-    return enriched.filter(
-      (r) =>
-        String(r.name || "").toLowerCase().includes(kw) ||
-        String(r.citizenID || "").toLowerCase().includes(kw) ||
-        String(r.address || "").toLowerCase().includes(kw)
-    );
-  }, [enriched, q]);
+  const summary = useMemo(() => {
+    const total = enriched.length;
+    const severe = enriched.filter((r) => r.severity === "รุนแรง").length;
+    const moderate = enriched.filter((r) => r.severity === "ปานกลาง").length;
+    const low = enriched.filter((r) => r.severity === "น้อย/ไม่มี").length;
+    return { total, severe, moderate, low };
+  }, [enriched]);
 
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const filtered =
+    filterSeverity === "ทั้งหมด"
+      ? enriched
+      : enriched.filter((r) => r.severity === filterSeverity);
 
-  /** ---------- Render ---------- **/
+  const handleFilterClick = (type) => {
+    setFilterSeverity(type);
+    setTimeout(() => {
+      tableRef.current?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
+  };
+
+  // ✅ โหลดข้อมูลรายบุคคล
+  const fetchElderlyDetail = async (id) => {
+    setLoadingDetail(true);
+    try {
+      const res = await fetch(`${ELDERLY_API}/${id}`, { cache: "no-store" });
+      const data = await res.json();
+      setPersonDetail(data?.data || null);
+    } catch {
+      setPersonDetail(null);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleSelectPerson = (r) => {
+    setSelectedPerson(r);
+    fetchElderlyDetail(r.elderlyID); // ดึงข้อมูลเต็มตาม ID
+  };
+
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-lg border border-gray-200 p-6 md:p-8 space-y-8">
-        <h1 className="text-2xl md:text-3xl font-bold text-center text-gray-800 mb-4">
-          วิเคราะห์การเดินทางมาโรงพยาบาล
+    <div className="min-h-screen  py-20">
+      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-lg border border-gray-200 p-8 space-y-10">
+        <h1 className="text-3xl font-bold text-center text-gray-800 mb-4">
+          📊 วิเคราะห์ข้อมูลผู้สูงอายุเพื่อวางแผนการดูแล
         </h1>
 
-        {/* พิกัดโรงพยาบาล */}
-        <section className="space-y-3">
-          <h2 className="text-lg font-semibold text-gray-700">
-            🏥 พิกัดโรงพยาบาลกระสัง (Lat, Long)
+        {/* ✅ Dashboard */}
+        <section className="">
+          <h2 className="text-lg font-semibold text-indigo-800 mb-4">
+            ผลการวิเคราะห์เบื้องต้น
           </h2>
-          <input
-            type="text"
-            value={hospitalLatLong}
-            onChange={(e) => setHospitalLatLong(e.target.value)}
-            placeholder="ตัวอย่าง: 15.0055,103.1009"
-            className={`w-full border rounded-lg px-3 py-2 text-gray-800 ${
-              latErr ? "border-red-400 focus:ring-red-300" : "focus:ring-indigo-300"
-            }`}
-          />
-          {latErr && <p className="text-red-600 text-sm">{latErr}</p>}
-        </section>
-
-        {/* เกณฑ์ */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            {
-              label: "ระยะเดินทางเองได้",
-              value: maxSelfTravelKm,
-              setter: setMaxSelfTravelKm,
-              hint: "≤ ค่านี้ → เดินทางเอง",
-            },
-            {
-              label: "ระยะพิจารณา/ญาติพามา",
-              value: considerEscortKm,
-              setter: setConsiderEscortKm,
-              hint: "เกินเดินเอง แต่ ≤ ค่านี้ → พิจารณา",
-            },
-            {
-              label: "ระยะที่ รพ. ต้องไปรับ",
-              value: forcePickupKm,
-              setter: setForcePickupKm,
-              hint: "> ค่านี้ → ให้รพ.ไปรับ",
-            },
-          ].map((item, i) => (
-            <div key={i} className="flex flex-col">
-              <label className="text-sm font-medium text-gray-700">{item.label}</label>
-              <div className="flex items-center gap-2 mt-1">
-                <input
-                  type="number"
-                  value={item.value}
-                  onChange={(e) => item.setter(Number(e.target.value))}
-                  className="w-24 border rounded-lg px-2 py-1 text-center"
-                />
-                <span className="text-sm text-gray-600">กม.</span>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+            {[
+              {
+                label: "รวมผู้สูงอายุทั้งหมด",
+                count: summary.total,
+                color: "black",
+                type: "ทั้งหมด",
+              },
+              {
+                label: "กลุ่มเสี่ยงรุนแรง",
+                count: summary.severe,
+                color: "red",
+                type: "รุนแรง",
+              },
+              {
+                label: "กลุ่มเสี่ยงปานกลาง",
+                count: summary.moderate,
+                color: "amber",
+                type: "ปานกลาง",
+              },
+              {
+                label: "กลุ่มเสี่ยงน้อย/ไม่มี",
+                count: summary.low,
+                color: "green",
+                type: "น้อย/ไม่มี",
+              },
+            ].map((box, i) => (
+              <div
+                key={i}
+                onClick={() => handleFilterClick(box.type)}
+                className={`p-4 bg-${box.color}-50 rounded-xl border cursor-pointer transition hover:scale-105 ${
+                  filterSeverity === box.type ? `ring-2 ring-${box.color}-400` : ""
+                }`}
+              >
+                <p className={`text-2xl font-bold text-${box.color}-700`}>
+                  {box.count}
+                </p>
+                <p>{box.label}</p>
               </div>
-              <span className="text-xs text-gray-500 mt-1">{item.hint}</span>
-            </div>
-          ))}
+            ))}
+          </div>
         </section>
 
-        {/* ค้นหา */}
-        <div className="flex flex-col md:flex-row gap-2 mt-6">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && load({ page: 1 })}
-            placeholder="เลขบัตรประชาชน"
-            className="flex-1 border rounded-lg px-3 py-2"
-          />
-          <button
-            onClick={() => load({ page: 1 })}
-            className="px-5 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-semibold shadow cursor-pointer"
-          >
-            ค้นหา
-          </button>
-        </div>
+        {/* ✅ ตาราง */}
+        <section ref={tableRef}>
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="font-semibold text-gray-700">
+              แสดงข้อมูล:{" "}
+              {filterSeverity === "ทั้งหมด"
+                ? "ทุกกลุ่ม"
+                : `เฉพาะ${filterSeverity}`}
+            </h3>
+          </div>
 
-        {/* ตาราง */}
-        <section>
           <div className="rounded-xl border overflow-x-auto shadow-sm">
             <table className="min-w-full text-sm">
               <thead className="bg-gray-100 text-gray-800">
                 <tr>
                   <th className="p-3 text-left">ชื่อ</th>
                   <th className="p-3 text-left">ที่อยู่</th>
-                  <th className="p-3 text-left">พิกัด</th>
-                  <th className="p-3 text-right">ระยะทาง (กม.)</th>
-                  <th className="p-3 text-center">คะแนน</th>
                   <th className="p-3 text-center">ความรุนแรง</th>
-                  <th className="p-3 text-center">สรุป</th>
-                  <th className="p-3 text-center">แผนที่</th>
+                  <th className="p-3 text-center">แผนการดูแล</th>
+                  <th className="p-3 text-center">ข้อมูลผู้สูงอายุ</th>
                 </tr>
               </thead>
-
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={8} className="text-center p-4">
+                    <td colSpan={5} className="text-center p-4">
                       กำลังโหลด...
                     </td>
                   </tr>
-                ) : filtered.length === 0 ? (
-                  <tr>
-                    <td colSpan={8} className="text-center p-4">
-                      ไม่พบข้อมูล
-                    </td>
-                  </tr>
                 ) : (
-                  filtered.map((r, idx) => (
-                    <tr key={`${r.id}-${idx}`} className="border-t hover:bg-gray-50">
-                      <td className="p-3">
-                        <div className="font-medium">{r.name}</div>
-                        <div className="text-xs text-gray-500">{r.citizenID}</div>
-                        <div className="text-xs text-gray-500">{r.phone}</div>
+                  filtered.map((r, i) => (
+                    <tr key={i} className="border-t hover:bg-gray-50">
+                      <td className="p-3 font-semibold text-gray-800">
+                        {r.name}
                       </td>
-                      <td className="p-3 text-xs text-gray-700">{r.address}</td>
-                      <td className="p-3 text-xs text-gray-700">
-                        {fmtCoord(r.latitude) && fmtCoord(r.longitude)
-                          ? `${fmtCoord(r.latitude)}, ${fmtCoord(r.longitude)}`
-                          : "-"}
-                      </td>
-                      <td className="p-3 text-right">
-                        {r.distanceKm?.toFixed(2) ?? "-"}
-                      </td>
-                      <td className="p-3 text-center">{r.yesCount}</td>
+                      <td className="p-3">{r.address}</td>
                       <td className="p-3 text-center">
                         <span
-                          className={
-                            "px-2 py-1 rounded-lg text-xs font-semibold " +
-                            (r.severity === "รุนแรง"
+                          className={`px-2 py-1 rounded-lg ${
+                            r.severity === "รุนแรง"
                               ? "bg-red-100 text-red-700"
                               : r.severity === "ปานกลาง"
                               ? "bg-amber-100 text-amber-700"
-                              : "bg-emerald-100 text-emerald-700")
-                          }
+                              : "bg-green-100 text-green-700"
+                          }`}
                         >
                           {r.severity}
                         </span>
                       </td>
-                      <td className="p-3 text-center">
-                        <span
-                          className={
-                            "px-2 py-1 rounded-lg text-xs font-semibold " +
-                            (r.decision === "ให้รพ.ไปรับ"
-                              ? "bg-red-600 text-white"
-                              : r.decision === "พิจารณา/ญาติพามา"
-                              ? "bg-amber-500 text-white"
-                              : "bg-emerald-600 text-white")
-                          }
-                        >
-                          {r.decision}
-                        </span>
-                        <div className="text-[10px] text-gray-500 mt-1">{r.reason}</div>
+
+                      {/* ✅ ปรับให้อยู่ตรงกลางแนวตั้ง + แนวนอน */}
+                      <td className="p-3 text-xs text-center align-middle">
+                        <ul className="w-[250px] mx-auto text-left list-disc list-inside space-y-1">
+                          {r.plan.map((p, idx) => (
+                            <li key={idx}>{p}</li>
+                          ))}
+                        </ul>
                       </td>
                       <td className="p-3 text-center">
-                        {fmtCoord(r.latitude) && fmtCoord(r.longitude) ? (
-                          <a
-  href={`https://www.google.com/maps/dir/?api=1&origin=${hospitalLatLong}&destination=${r.latitude},${r.longitude}&travelmode=driving`}
-  target="_blank"
-  rel="noopener noreferrer"
-  className="text-blue-600 underline text-xs"
->
-  เปิดเส้นทาง
-</a>
-
-                        ) : (
-                          "-"
-                        )}
+                        <button
+                          onClick={() => handleSelectPerson(r)}
+                          className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition"
+                        >
+                          ข้อมูลผู้สูงอายุ
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -363,36 +281,64 @@ function OATravelAnalysisPage() {
           </div>
         </section>
 
-        {/* pagination */}
-        <div className="flex justify-between items-center text-sm mt-4">
-          <span>
-            รวม {total} รายการ • หน้า {page}/{totalPages}
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => {
-                const p = Math.max(1, page - 1);
-                setPage(p);
-                load({ page: p });
-              }}
-              disabled={page <= 1}
-              className="px-3 py-1 border rounded-lg disabled:opacity-40 hover:bg-gray-100 cursor-pointer"
+        {/* ✅ Modal รายละเอียดผู้สูงอายุ */}
+        {selectedPerson && (
+          <div
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]"
+            onClick={() => {
+              setSelectedPerson(null);
+              setPersonDetail(null);
+            }}
+          >
+            <div
+              className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl relative"
+              onClick={(e) => e.stopPropagation()}
             >
-              ก่อนหน้า
-            </button>
-            <button
-              onClick={() => {
-                const p = Math.min(totalPages, page + 1);
-                setPage(p);
-                load({ page: p });
-              }}
-              disabled={page >= totalPages}
-              className="px-3 py-1 border rounded-lg disabled:opacity-40 hover:bg-gray-100 cursor-pointer"
-            >
-              ถัดไป
-            </button>
+              <button
+                onClick={() => {
+                  setSelectedPerson(null);
+                  setPersonDetail(null);
+                }}
+                className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"
+              >
+                ✕
+              </button>
+              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">
+                ข้อมูลผู้สูงอายุ
+              </h2>
+
+              {loadingDetail ? (
+                <p className="text-center text-gray-500 py-4">กำลังโหลดข้อมูล...</p>
+              ) : personDetail ? (
+                <div className="space-y-2 text-sm text-gray-800">
+                  <p><strong>ชื่อ-สกุล:</strong> {personDetail.name}</p>
+                  <p><strong>เลขบัตรประชาชน:</strong> {personDetail.citizenID}</p>
+                  <p><strong>เพศ: </strong>{personDetail.genderTh || '-'}</p>
+                  <p><strong>วันเกิด:</strong> {personDetail.birthTh || '-'}</p>
+                  <p><strong>อายุ:</strong> {personDetail.age} ปี</p>
+                  <p><strong>โทร:</strong> {personDetail.phone}</p>
+                  <p><strong>ที่อยู่:</strong> {personDetail.address}</p>
+                  <p>
+                    <strong>ตำบล/อำเภอ/จังหวัด:</strong>{" "}
+                    {personDetail.subdistrict} / {personDetail.district} / {personDetail.province}
+                  </p>
+                  <p>
+                    <strong>พิกัด:</strong>{" "}
+                    {personDetail.latitude}, {personDetail.longitude}
+                  </p>
+                  <p><strong>ส่วนสูง:</strong> {personDetail.height} ซม.</p>
+                  <p><strong>น้ำหนัก:</strong> {personDetail.weight} กก.</p>
+                  <p><strong>โรคประจำตัว:</strong> {personDetail.disease || "-"}</p>
+                  <p><strong>หมายเหตุ:</strong> {personDetail.note || "-"}</p>
+                </div>
+              ) : (
+                <p className="text-center text-gray-500 py-4">
+                  ไม่พบข้อมูลผู้สูงอายุ
+                </p>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );

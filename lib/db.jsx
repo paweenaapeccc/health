@@ -13,6 +13,11 @@ export async function connectDB() {
       connectionLimit: 10,
       queueLimit: 0,
     })
+
+    pool.on('error', (err) => {
+      console.error('❌ MySQL Pool Error:', err)
+      pool = null // ให้สร้างใหม่รอบหน้า
+    })
   }
   return pool
 }
