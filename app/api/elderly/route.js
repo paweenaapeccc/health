@@ -1,11 +1,11 @@
-import { connectDB } from '@/lib/db'
+import { connectDB } from '@/lib/db' 
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
 
 /* ==========================================================
    ✅ GET /api/elderly
-   ดึงรายชื่อผู้สูงอายุทั้งหมด (ใช้ในหน้ารายการ)
+   ดึงรายชื่อผู้สูงอายุทั้งหมด (ใช้ในหน้ารายการ + แผนที่)
 ========================================================== */
 export async function GET(req) {
   try {
@@ -25,33 +25,45 @@ export async function GET(req) {
     }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
 
+    // ✅ ดึงข้อมูลผู้สูงอายุ + ผลการประเมินล่าสุด
     const [rows] = await db.execute(
       `
       SELECT
-        elderlyID AS id,
-        userID AS userId,
-        name,
-        phonNumber,
-        citizenID,
-        birthDate,
-        gender,
-        address,
-        subdistrict,
-        district,
-        province,
-        latlong,
-        height,
-        weight,
-        congenitalDisease,
-        note
-      FROM elderly
+        e.elderlyID AS id,
+        e.userID AS userId,
+        e.name,
+        e.phonNumber,
+        e.citizenID,
+        e.birthDate,
+        e.gender,
+        e.address,
+        e.subdistrict,
+        e.district,
+        e.province,
+        e.latlong,
+        e.height,
+        e.weight,
+        e.congenitalDisease,
+        e.note,
+        ar.as_results AS assessment_result
+      FROM elderly e
+      LEFT JOIN (
+        SELECT a1.elderlyID, a1.as_results
+        FROM assessmentresults a1
+        INNER JOIN (
+          SELECT elderlyID, MAX(as_resultsID) AS latest_id
+          FROM assessmentresults
+          GROUP BY elderlyID
+        ) latest 
+        ON a1.elderlyID = latest.elderlyID AND a1.as_resultsID = latest.latest_id
+      ) ar ON e.elderlyID = ar.elderlyID
       ${whereSql}
-      ORDER BY elderlyID DESC
+      ORDER BY e.elderlyID DESC
       `,
       params
     )
 
-    // ✅ เพิ่มฟังก์ชันคำนวณอายุ
+    // ✅ คำนวณอายุ
     const calcAge = (birthDate) => {
       if (!birthDate) return '-'
       const birth = new Date(birthDate)
@@ -63,7 +75,6 @@ export async function GET(req) {
       return age
     }
 
-    // ✅ เพิ่มฟิลด์ age ให้แต่ละรายการ
     const data = rows.map((r) => ({
       ...r,
       age: calcAge(r.birthDate),
@@ -84,7 +95,7 @@ export async function POST(req) {
   try {
     const db = await connectDB()
 
-    // ✅ ตรวจ token (กรณีมีระบบ login)
+    // ✅ ตรวจ token (ถ้ามีระบบ login)
     const token = (await cookies()).get('token')?.value
     let userId = null
     if (token) {
@@ -97,7 +108,6 @@ export async function POST(req) {
       }
     }
 
-    // ✅ รับค่าจาก body
     const body = await req.json()
     const {
       name, phoneNumber, citizenID,

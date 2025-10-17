@@ -1,168 +1,233 @@
-"use client";
+'use client'
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from 'react'
 import {
   MapContainer,
   TileLayer,
   Marker,
   Popup,
   Polyline,
-} from "react-leaflet";
-import L from "leaflet";
-import polyline from "@mapbox/polyline";
+  useMap,
+} from 'react-leaflet'
+import L from 'leaflet'
+import polyline from '@mapbox/polyline'
+import 'leaflet/dist/leaflet.css'
 
-// ✅ ตั้งค่า default icon (แก้ปัญหา marker 404)
-delete L.Icon.Default.prototype._getIconUrl;
+// ✅ ตั้งค่า default marker (กัน error 404)
+delete L.Icon.Default.prototype._getIconUrl
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png",
+    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
   iconUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png",
+    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl:
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png",
-});
+    'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+})
 
-// ✅ โรงพยาบาลกระสัง
-const HOSPITAL_LATLNG = [14.921958636767206, 103.30063774292132];
+// ✅ พิกัดโรงพยาบาล
+const HOSPITAL_LATLNG = [14.921958636767206, 103.30063774292132]
+const hospitalIcon = L.icon({
+  iconUrl: 'https://cdn-icons-png.flaticon.com/512/2966/2966327.png',
+  iconSize: [40, 40],
+  iconAnchor: [20, 40],
+  popupAnchor: [0, -35],
+})
 
-export default function LeafletMap({ elderlyList }) {
-  const [routeCoords, setRouteCoords] = useState([]);
-  const [distance, setDistance] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const mapRef = useRef(null);
+export default function LeafletMap({ elderlyList = [] }) {
+  const [routeCoords, setRouteCoords] = useState([])
+  const [distance, setDistance] = useState(0)
+  const [duration, setDuration] = useState(0)
+  const [routeVisible, setRouteVisible] = useState(false)
+  const mapRef = useRef(null)
 
-  const hospitalIcon = L.icon({
-    iconUrl: "https://cdn-icons-png.flaticon.com/512/2966/2966327.png",
-    iconSize: [40, 40],
-    iconAnchor: [20, 40],
-  });
+  // ✅ รีเฟรชขนาดแผนที่เวลาโหลดหรือ resize
+  useEffect(() => {
+    const map = mapRef.current
+    if (!map) return
+    setTimeout(() => map.invalidateSize(), 300)
+    const onResize = () => map.invalidateSize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
-  // ✅ ฟังก์ชันเรียกเส้นทางจาก API
+  // ✅ ดึงเส้นทางจาก API
   const fetchRoute = async (start, end) => {
     try {
-      const res = await fetch(
-        "https://api.openrouteservice.org/v2/directions/driving-car",
-        {
-          method: "POST",
-          headers: {
-            Authorization:
-              "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImNlZjk1MjkyOWFiMjRlMGI4YjBiYjQ2M2IwMmU4NGE0IiwiaCI6Im11cm11cjY0In0=",
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            coordinates: [
-              [start[1], start[0]], // [lng, lat]
-              [end[1], end[0]],
-            ],
-          }),
-        }
-      );
-
-      const data = await res.json();
-      const route = data?.routes?.[0];
+      const res = await fetch('https://api.openrouteservice.org/v2/directions/driving-car', {
+        method: 'POST',
+        headers: {
+          Authorization:
+            'eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6ImNlZjk1MjkyOWFiMjRlMGI4YjBiYjQ2M2IwMmU4NGE0IiwiaCI6Im11cm11cjY0In0=',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          coordinates: [
+            [start[1], start[0]],
+            [end[1], end[0]],
+          ],
+        }),
+      })
+      const data = await res.json()
+      const route = data?.routes?.[0]
       if (route?.geometry) {
-        const decoded = polyline.decode(route.geometry);
-        setRouteCoords(decoded);
+        const decoded = polyline.decode(route.geometry)
+        setRouteCoords(decoded)
+        setRouteVisible(true)
+        setDistance((route.summary.distance / 1000).toFixed(2))
+        setDuration((route.summary.duration / 60).toFixed(1))
 
-        // ✅ ระยะทาง (กม.) และ เวลา (นาที)
-        const distKm = (route.summary.distance / 1000).toFixed(2);
-        const timeMin = (route.summary.duration / 60).toFixed(1);
-        setDistance(distKm);
-        setDuration(timeMin);
-
-        // ✅ ซูมให้เห็นเส้นทางทั้งหมด
-        if (mapRef.current) {
-          mapRef.current.flyToBounds(decoded, { duration: 2 });
+        const map = mapRef.current
+        if (map) {
+          setTimeout(() => {
+            map.fitBounds(decoded, { padding: [40, 40] })
+            map.invalidateSize()
+          }, 100)
         }
       } else {
-        alert("❌ ไม่พบเส้นทางจาก OpenRouteService");
+        alert('❌ ไม่พบเส้นทางจาก OpenRouteService')
       }
-    } catch (err) {
-      console.error("Error fetching route:", err);
-      alert("เกิดข้อผิดพลาดในการดึงเส้นทาง");
+    } catch (e) {
+      console.error(e)
+      alert('เกิดข้อผิดพลาดในการดึงเส้นทาง')
     }
-  };
+  }
+
+  const clearRoute = () => {
+    setRouteCoords([])
+    setDistance(0)
+    setDuration(0)
+    setRouteVisible(false)
+  }
 
   return (
-    <div className="relative w-full">
-      {/* ✅ ใช้ relative ครอบ MapContainer */}
-      <div className="relative w-full h-[85vh]">
+    <div className="relative w-full h-[calc(100vh-150px)]">
+      <div key="map" className="h-full w-full z-0">
         <MapContainer
           center={[15.0, 103.1]}
           zoom={11}
-          style={{ height: "100%", width: "100%" }}
-          whenCreated={(map) => (mapRef.current = map)}
+          className="h-full w-full z-0"
+          whenCreated={(map) => {
+            mapRef.current = map
+            setTimeout(() => map.invalidateSize(), 300)
+          }}
         >
+          {/* ✅ โหลดแผนที่แน่นอน */}
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a>'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
           />
 
-          {/* 🏥 โรงพยาบาล */}
+          {/* ✅ Marker โรงพยาบาล */}
           <Marker position={HOSPITAL_LATLNG} icon={hospitalIcon}>
-            <Popup>
-              🏥 <b>โรงพยาบาลกระสัง</b>
-            </Popup>
+            <Popup>🏥 <b>โรงพยาบาลกระสัง</b></Popup>
           </Marker>
 
-          {/* 👵 ผู้สูงอายุ */}
-          {elderlyList.map((e) => {
-            if (!e.latlong) return null;
-            const [lat, lng] = e.latlong.split(",").map(Number);
-            if (isNaN(lat) || isNaN(lng)) return null;
+          {/* ✅ Marker ผู้สูงอายุ */}
+          {Array.isArray(elderlyList) &&
+            elderlyList.map((e) => {
+              if (!e?.latlong) return null
+              const [lat, lng] = e.latlong.split(',').map(Number)
+              if (isNaN(lat) || isNaN(lng)) return null
 
-            return (
-              <Marker key={e.id} position={[lat, lng]}>
-                <Popup>
-                  <div>
-                    <p>
-                      <b>ชื่อ:</b> {e.name}
-                    </p>
-                    <p>
-                      <b>อายุ:</b> {e.age} ปี
-                    </p>
-                    <p>
-                      <b>เพศ:</b> {e.gender}
-                    </p>
-                    <p>
-                      <b>ที่อยู่:</b> {e.address}
-                    </p>
-                    <button
-                      className="text-blue-600 font-semibold underline hover:text-blue-800"
-                      onClick={() => fetchRoute([lat, lng], HOSPITAL_LATLNG)}
-                    >
-                      🚗 เส้นทางไปโรงพยาบาลกระสัง
-                    </button>
-                  </div>
-                </Popup>
-              </Marker>
-            );
-          })}
+              return (
+                <Marker key={e.id} position={[lat, lng]}>
+                  <Popup>
+                    <div className="space-y-2">
+                      <p>
+                        <b>ชื่อ:</b> {e.name}<br />
+                        <b>อายุ:</b> {e.age} ปี<br />
+                        <b>เพศ:</b> {e.gender}<br />
+                        <b>ที่อยู่:</b> {e.address}
+                      </p>
 
-          {/* 🚗 เส้นทาง */}
+                      {/* ✅ แสดงผลประเมิน */}
+                      <p className="mt-2 font-semibold bg-gray-100 border border-gray-300 rounded-lg px-3 py-1">
+                        {e.assessment_result
+                          ? <>🩺 ผลการประเมิน: {e.assessment_result}</>
+                          : <>⚠️ ยังไม่ได้ทำแบบประเมิน</>}
+                      </p>
+
+                      <button
+                        onClick={() => fetchRoute([lat, lng], HOSPITAL_LATLNG)}
+                        className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md"
+                      >
+                        🚗 เส้นทางไปโรงพยาบาลกระสัง
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          window.open(
+                            `https://www.google.com/maps/dir/?api=1&origin=${lat},${lng}&destination=${HOSPITAL_LATLNG[0]},${HOSPITAL_LATLNG[1]}&travelmode=driving`,
+                            '_blank'
+                          )
+                        }
+                        className="mt-2 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md"
+                      >
+                        🧭 เปิดนำทางใน Google Maps
+                      </button>
+                    </div>
+                  </Popup>
+                </Marker>
+              )
+            })}
+
           {routeCoords.length > 0 && (
-            <Polyline
-              positions={routeCoords}
-              color="blue"
-              weight={6}
-              opacity={0.8}
-            />
+            <Polyline positions={routeCoords} color="deepskyblue" weight={6} />
+          )}
+
+          {/* ✅ ปุ่มและกล่องข้อมูล */}
+          {routeVisible && (
+            <>
+              <MapButton onClear={clearRoute} />
+              <MapInfo distance={distance} duration={duration} />
+            </>
           )}
         </MapContainer>
-
-        {/* 📊 กล่องข้อมูลแสดงที่มุมซ้ายล่าง */}
-        {distance > 0 && (
-          <div className="absolute bottom-6 left-6 bg-white/95 backdrop-blur-md border-2 border-blue-400 rounded-2xl shadow-2xl p-5 text-gray-900 text-lg font-semibold z-[1000] min-w-[240px]">
-            <p className="mb-2 text-xl font-bold text-blue-700">
-              🚗 ระยะทาง: <span className="text-black">{distance} กม.</span>
-            </p>
-            <p className="text-xl font-bold text-green-700">
-              ⏱️ เวลาเดินทาง:{" "}
-              <span className="text-black">{duration} นาที</span>
-            </p>
-          </div>
-        )}
       </div>
     </div>
-  );
+  )
+}
+
+// ✅ ปุ่มล้างเส้นทาง
+function MapButton({ onClear }) {
+  const map = useMap()
+  useEffect(() => {
+    map.invalidateSize()
+  }, [map])
+  return (
+    <div
+      className="leaflet-top leaflet-left z-[1001]"
+      style={{ marginTop: '20px', marginLeft: '50px' }}
+    >
+      <div className="leaflet-control bg-white shadow-md rounded-md">
+        <button
+          onClick={onClear}
+          className="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-md"
+        >
+          ล้างเส้นทาง
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ✅ กล่องข้อมูลระยะทาง/เวลา
+function MapInfo({ distance, duration }) {
+  const map = useMap()
+  useEffect(() => {
+    map.invalidateSize()
+  }, [map])
+  return (
+    <div
+      className="leaflet-top leaflet-right z-[1001]"
+      style={{ marginTop: '20px', marginRight: '15px' }}
+    >
+      <div className="leaflet-control bg-white/90 backdrop-blur-sm border border-gray-300 rounded-lg shadow-md px-4 py-2">
+        <p className="text-gray-800 font-semibold text-sm">
+          📏 ระยะทาง: <span className="text-blue-700">{distance} กม.</span><br />
+          ⏱ เวลาโดยประมาณ: <span className="text-green-700">{duration} นาที</span>
+        </p>
+      </div>
+    </div>
+  )
 }
