@@ -112,7 +112,99 @@ export default function HomePage() {
                     <li><b>ข้อเข่าโก่งงอ ผิดรูป:</b> ขาโก่ง ต้นขาลีบ ข้อเข่าผิดรูป ทำให้เดินลำบากและปวดเวลาเคลื่อนไหว</li>
                   </ul>
                 </section>
+{/* ระยะอาการของโรค */}
+            <section className="bg-white p-6 rounded-xl shadow-md space-y-4 mt-2 border border-gray-200">
+              <h2 className="text-2xl font-bold text-teal-700">
+                ระยะอาการของโรคข้อเข่าเสื่อม
+              </h2>
 
+              <p className="text-gray-700">
+                โดยทั่วไประยะของโรคข้อเข่าเสื่อมแบ่งได้เป็น 4 ระยะ ดังนี้:
+              </p>
+
+              <div className="overflow-x-auto">
+                <table className="min-w-full border border-gray-300 rounded-lg overflow-hidden">
+                  <thead className="bg-teal-100">
+                    <tr>
+                      <th className="border border-gray-300 px-4 py-2 text-left">ระยะ</th>
+                      <th className="border border-gray-300 px-4 py-2 text-left">ลักษณะอาการ</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="border border-gray-300 px-4 py-2">ระยะที่ 1</td>
+                      <td className="border border-gray-300 px-4 py-2">ยังทำงานทุกอย่างได้ตามปกติ</td>
+                    </tr>
+                    <tr className="bg-gray-50">
+                      <td className="border border-gray-300 px-4 py-2">ระยะที่ 2</td>
+                      <td className="border border-gray-300 px-4 py-2">เริ่มทำงานหนักไม่ได้</td>
+                    </tr>
+                    <tr>
+                      <td className="border border-gray-300 px-4 py-2">ระยะที่ 3</td>
+                      <td className="border border-gray-300 px-4 py-2">ยังทำกิจวัตรประจำวันได้</td>
+                    </tr>
+                    <tr className="bg-gray-50">
+                      <td className="border border-gray-300 px-4 py-2">ระยะที่ 4</td>
+                      <td className="border border-gray-300 px-4 py-2">เดินไม่ไหว เคลื่อนไหวลำบาก</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              <p className="text-gray-700 leading-relaxed">
+                หากอยู่ใน <span className="font-medium text-teal-600">ระยะที่ 1 หรือระยะแรก</span> 
+                ผู้ป่วยสามารถดูแลตัวเองได้ด้วยการปรับพฤติกรรม เช่น  
+                หลีกเลี่ยงท่านั่งที่กดแรงต่อข้อ (พับเพียบ คุกเข่า ขัดสมาธิ ยอง ๆ ไขว่ห้าง)  
+                ลดการขึ้นลงบันไดโดยไม่จำเป็น และหลีกเลี่ยงการยกของหนัก ๆ  
+                โดยเฉพาะในผู้ที่ทำงานยืนทั้งวัน ควรพักนั่งเป็นระยะ ๆ เพื่อชะลอการเสื่อมของข้อเข่า
+                <br /><br />
+                สำหรับผู้ป่วยที่เริ่มมีอาการเตือนตั้งแต่ระยะที่ 2-4 แนะนำให้ปรึกษาแพทย์
+                เพื่อวางแผนทำการรักษา ซึ่งจะเป็นการป้องกันข้อไม่ให้ถูกทำลายมากขึ้น 
+                และลดโอกาสเกิดข้อเข่าเสื่อมรุนแรง
+              </p>
+            </section>
+
+            {/* แนวทางการรักษา */}
+            <section className="bg-white p-6 rounded-xl shadow-md space-y-4 mt-2 border border-gray-200">
+              <h2 className="text-2xl font-bold text-teal-700">
+                แนวทางการรักษาโรคข้อเข่าเสื่อม
+              </h2>
+
+              <ul className="list-decimal list-inside text-gray-700 space-y-3">
+                <li>
+                  <b>การรักษาที่ไม่ใช้ยา (Non-pharmacological therapy):</b>
+                  ปรับเปลี่ยนพฤติกรรมการใช้ชีวิต เช่น ลดน้ำหนัก ออกกำลังกายที่เหมาะสม 
+                  ใช้ข้อเข่าอย่างถูกวิธี หลีกเลี่ยงท่าที่กดแรงเกินไป
+                </li>
+                <li>
+                  <b>กายภาพบำบัด:</b> บริหารกล้ามเนื้อ ฟื้นฟูการทำงานของข้อ 
+                  ใช้เทคนิค เช่น อัลตราซาวด์ เลเซอร์ หรืออุปกรณ์พยุงข้อ (เฝือกอ่อน ผ้ารัดเข่า) 
+                  แต่ไม่ควรใช้ต่อเนื่องนานเกินไปเพราะอาจทำให้กล้ามเนื้อลีบ
+                </li>
+                <li>
+                  <b>การใช้ยา (Pharmacological therapy):</b>
+                  อาจเป็นยารับประทานหรือฉีด เช่น ยาแก้ปวด/ลดอักเสบที่ไม่ใช่สเตียรอยด์ (NSAIDs), 
+                  ยาช่วยปรับเปลี่ยนโครงสร้างข้อ (DMOADs) ซึ่งต้องได้รับการดูแลโดยแพทย์
+                </li>
+                <li>
+                  <b>การรักษาโดยการผ่าตัด:</b> เหมาะกับผู้ป่วยที่อาการรุนแรง ไม่ตอบสนองต่อวิธีอื่น
+                  <ul className="list-inside ml-6 space-y-1">
+                    <li><b>Arthrodesis:</b> ผ่าตัดเชื่อมข้อให้ผิวข้อเข้ามาชิดกัน</li>
+                    <li><b>Arthroplasty:</b> การผ่าตัดเปลี่ยนข้อเข่าเทียม</li>
+                    <li><b>Osteotomy:</b> การตัดเปลี่ยนแนวกระดูกเพื่อปรับสมดุลแรงกด</li>
+                  </ul>
+                </li>
+              </ul>
+
+              <p className="text-gray-700 leading-relaxed">
+                แม้โรคข้อเข่าเสื่อมมักเกิดขึ้นเมื่ออายุมากขึ้น 
+                แต่สามารถ<strong className="text-teal-600">ชะลอการเสื่อมและรักษาได้หลายวิธี</strong> 
+                หากเริ่มมีอาการปวดหรือลำบากในการใช้ชีวิต 
+                ควรรีบปรึกษาแพทย์เพื่อหาสาเหตุที่แท้จริง 
+                และเลือกวิธีรักษาที่เหมาะสม จะช่วยลดความรุนแรงของโรค 
+                และทำให้คุณภาพชีวิตดีขึ้น
+              </p>
+            </section>
                 {/* ✅ แหล่งอ้างอิง */}
                 <div className="mt-8 p-4 sm:p-5 bg-white border border-teal-200 rounded-xl shadow-sm text-center">
                   <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
