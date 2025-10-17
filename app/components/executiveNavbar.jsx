@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { LogIn, LogOut, Menu, X, Map } from 'lucide-react' // ✅ เพิ่มไอคอน Map
+import { LogIn, LogOut, Menu, X, Map, BarChart3, ChevronDown } from 'lucide-react' // ✅ เพิ่ม BarChart3, ChevronDown
 
 export default function ExecutiveNavbar() {
   const pathname = usePathname()
@@ -13,6 +13,8 @@ export default function ExecutiveNavbar() {
   const [username, setUsername] = useState('')
   const [role, setRole] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
+  const [openReport, setOpenReport] = useState(false) // ✅ เพิ่มสถานะ dropdown “รายงาน”
+  const reportRef = useRef(null)
 
   // ✅ ตรวจสอบ session
   useEffect(() => {
@@ -31,6 +33,9 @@ export default function ExecutiveNavbar() {
     }
     checkSession()
   }, [pathname])
+
+  // ✅ ฟังก์ชันตรวจ active menu
+  const isActive = (path) => pathname.startsWith(path) // ✅ เพิ่ม helper function
 
   // ✅ ออกจากระบบ
   const handleLogout = async () => {
@@ -79,15 +84,6 @@ export default function ExecutiveNavbar() {
                   </Link>
                 </li>
 
-                <li>
-                  <Link
-                    href="/executive/analysis_results"
-                    className={itemCls(pathname.startsWith('/executive/analysis_results'))}
-                  >
-                    <span>ผลการวิเคราะห์</span>
-                  </Link>
-                </li>
-
                 {/* ✅ เมนูใหม่: แผนที่ */}
                 <li>
                   <Link
@@ -101,6 +97,46 @@ export default function ExecutiveNavbar() {
               </>
             )}
 
+            {isLoggedIn && (
+              <li className="relative" ref={reportRef}>
+                <button
+                  onClick={() => setOpenReport(!openReport)}
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition focus:outline-none ${
+                    isActive('/executive/reports')
+                      ? 'bg-blue-200 text-blue-800 font-semibold'
+                      : 'text-gray-700 hover:bg-blue-100'
+                  }`}
+                >
+                  <BarChart3 size={20} />
+                  <span>รายงาน</span>
+                  <ChevronDown
+                    size={16}
+                    className={`transition-transform ${openReport ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {openReport && (
+                  <div className="absolute right-0 mt-2 w-80 rounded-xl border bg-white shadow-lg p-2">
+                    <Link
+                      href="/executive/reports/knee_oa"
+                      className={`block px-3 py-2 rounded-lg hover:bg-gray-50 ${
+                        isActive('/executive/reports/knee_oa') ? 'bg-blue-50 font-semibold' : ''
+                      }`}
+                    >
+                      • รายงานจำนวนผู้สูงอายุ
+                    </Link>
+                    <Link
+                      href="/executive/reports/trend"
+                      className={`block px-3 py-2 rounded-lg hover:bg-gray-50 ${
+                        isActive('/executive/reports/trend') ? 'bg-blue-50 font-semibold' : ''
+                      }`}
+                    >
+                      • รายงานแนวโน้มต่อปี
+                    </Link>
+                  </div>
+                )}
+              </li>
+            )}
             {isLoggedIn && (
               <li className="text-sm text-gray-800">
                 สวัสดี, {username}
@@ -132,83 +168,6 @@ export default function ExecutiveNavbar() {
           </ul>
         </div>
       </div>
-
-      {/* 🔹 เมนูมือถือ */}
-      {menuOpen && (
-        <div className="md:hidden bg-white border-t border-gray-200 shadow-md">
-          <ul className="flex flex-col space-y-2 p-4 text-gray-700 font-medium">
-
-            {isLoggedIn && role === 'executive' && (
-              <>
-                <li>
-                  <Link
-                    href="/executive/osteo_analysis"
-                    onClick={() => setMenuOpen(false)}
-                    className={itemCls(pathname.startsWith('/executive/osteo_analysis'))}
-                  >
-                    <span>วิเคราะห์ข้อมูล</span>
-                  </Link>
-                </li>
-
-                <li>
-                  <Link
-                    href="/executive/analysis_results"
-                    onClick={() => setMenuOpen(false)}
-                    className={itemCls(pathname.startsWith('/executive/analysis_results'))}
-                  >
-                    <span>ผลการวิเคราะห์</span>
-                  </Link>
-                </li>
-
-                {/* ✅ เมนูใหม่: แผนที่ */}
-                <li>
-                  <Link
-                    href="/executive/map"
-                    onClick={() => setMenuOpen(false)}
-                    className={itemCls(pathname.startsWith('/executive/map'))}
-                  >
-                    <Map size={18} />
-                    <span>แผนที่</span>
-                  </Link>
-                </li>
-              </>
-            )}
-
-            {isLoggedIn && (
-              <li className="text-sm text-gray-800 px-3 py-2">
-                สวัสดี, {username}
-                {role ? ` (${role})` : ''}
-              </li>
-            )}
-
-            {!isLoggedIn ? (
-              <li>
-                <Link
-                  href="/login"
-                  onClick={() => setMenuOpen(false)}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-lg hover:bg-blue-100"
-                >
-                  <LogIn size={20} />
-                  <span>เข้าสู่ระบบ</span>
-                </Link>
-              </li>
-            ) : (
-              <li>
-                <button
-                  onClick={() => {
-                    setMenuOpen(false)
-                    handleLogout()
-                  }}
-                  className="flex items-center space-x-2 px-3 py-2 rounded-lg bg-red-100 hover:bg-red-200 text-red-700 w-full text-left"
-                >
-                  <LogOut size={20} />
-                  <span>ออกจากระบบ</span>
-                </button>
-              </li>
-            )}
-          </ul>
-        </div>
-      )}
     </nav>
   )
 }
