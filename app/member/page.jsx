@@ -26,7 +26,7 @@ export default function HomePage() {
       {/* ✅ Layout แบ่งเป็น 2 ฝั่ง */}
       <div className="flex flex-col md:flex-row items-start justify-center gap-10 px-4 md:px-12 py-7">
         
-        {/* ✅ ฝั่งซ้าย — เนื้อหาทั้งหมดของคุณ */}
+        {/* ✅ ฝั่งซ้าย — เนื้อหาทั้งหมด*/}
         <div className="flex-1 w-full max-w-4xl relative">
           <main className="flex-grow flex justify-center items-start">
             <div className="w-full max-w-4xl">
