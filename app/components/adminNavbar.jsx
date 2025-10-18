@@ -153,6 +153,7 @@ export default function AdminNavbar() {
             {isLoggedIn && (
               <li className="text-sm text-gray-800">
                 สวัสดี, {username}
+                {role ? ` (${role})` : ''}
               </li>
             )}
 
@@ -231,7 +232,10 @@ export default function AdminNavbar() {
             )}
 
             {isLoggedIn && (
-              <li className="text-sm text-gray-800 px-3 py-2">สวัสดี, {username}</li>
+              <li className="text-sm text-gray-800 px-3 py-2">
+                สวัสดี, {username}
+              {role ? ` (${role})` : ''}
+              </li>
             )}
 
             {!isLoggedIn ? (
