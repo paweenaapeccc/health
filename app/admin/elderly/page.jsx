@@ -163,10 +163,10 @@ export default function AdminElderlyPage() {
             </button>
 
             <h2 className="text-2xl font-bold text-center mb-4 text-gray-800">
-              ข้อมูลผู้สูงอายุ
+              ข้อมูลสุขภาพผู้สูงอายุ
             </h2>
             <div className="space-y-2 text-gray-700">
-              <p>
+              {/* <p>
                 <strong>ชื่อ-สกุล:</strong> {detail.data?.name ?? "-"}
               </p>
               <p>
@@ -196,7 +196,7 @@ export default function AdminElderlyPage() {
               </p>
               <p>
                 <strong>พิกัด:</strong> {detail.data?.latlong ?? "-"}
-              </p>
+              </p> */}
               <p>
                 <strong>ส่วนสูง:</strong> {detail.data?.height ?? "-"} ซม.
               </p>
