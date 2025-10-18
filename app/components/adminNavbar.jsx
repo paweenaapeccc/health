@@ -5,8 +5,10 @@ import { usePathname, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
 import {
+  Home,
   LogIn,
   LogOut,
+  Info,
   Users,
   BarChart3,
   ChevronDown,
@@ -106,7 +108,7 @@ export default function AdminNavbar() {
               </li>
             )}
 
-            {/* ✅ เมนูรายงาน (แก้เฉพาะตรงนี้เท่านั้น) */}
+            {/* เมนูรายงาน */}
             {isLoggedIn && (
               <li className="relative" ref={reportRef}>
                 <button
@@ -127,12 +129,8 @@ export default function AdminNavbar() {
 
                 {openReport && (
                   <div className="absolute right-0 mt-2 w-80 rounded-xl border bg-white shadow-lg p-2">
-                    <p className="px-3 py-2 text-gray-500 text-sm border-b">
-                      เลือกประเภทข้อมูลรายงาน
-                    </p>
                     <Link
                       href="/admin/reports/knee_oa"
-                      onClick={() => setOpenReport(false)}
                       className={`block px-3 py-2 rounded-lg hover:bg-gray-50 ${
                         isActive('/admin/reports/knee_oa') ? 'bg-blue-50 font-semibold' : ''
                       }`}
@@ -141,7 +139,6 @@ export default function AdminNavbar() {
                     </Link>
                     <Link
                       href="/admin/reports/trend"
-                      onClick={() => setOpenReport(false)}
                       className={`block px-3 py-2 rounded-lg hover:bg-gray-50 ${
                         isActive('/admin/reports/trend') ? 'bg-blue-50 font-semibold' : ''
                       }`}
