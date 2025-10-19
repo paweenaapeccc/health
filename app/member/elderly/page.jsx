@@ -1,4 +1,4 @@
-'use client'
+'use client' 
 
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
@@ -73,7 +73,8 @@ export default function MemberElderlyPage() {
       if (res.ok && (json.ok ?? true)) {
         const data = Array.isArray(json) ? json : json.data
         setRows(data || [])
-        setTotal((Array.isArray(json) ? data?.length : json.total) ?? 0)
+        // ✅ แก้ตรงนี้เท่านั้น — เพื่อให้ "รวมรายการ" แสดงถูกต้อง
+        setTotal(data?.length ?? (Array.isArray(json) ? json.length : json.total) ?? 0)
       } else {
         setRows([])
         setTotal(0)
@@ -251,14 +252,6 @@ export default function MemberElderlyPage() {
             </h2>
 
             <div className="space-y-2 text-gray-800 text-lg">
-              {/* <p><b>ชื่อ:</b> {selected.name ?? '-'}</p>
-              <p><b>เพศ:</b> {genderLabel(selected.gender)}</p>
-              <p><b>วันเกิด:</b> {fmtDate(selected.birthDate)}</p>
-              <p><b>อายุ:</b> {calcAge(selected.birthDate)} ปี</p>
-              <p><b>เลขบัตรประชาชน:</b> {selected.citizenID ?? '-'}</p>
-              <p><b>ที่อยู่:</b> {selected.address ?? '-'}</p>
-              <p><b>ตำบล/อำเภอ/จังหวัด:</b> {[selected.subdistrict, selected.district, selected.province].filter(Boolean).join(' / ') || '-'}</p>
-              <p><b>เบอร์โทร:</b> {selected.phoneNumber ?? selected.phonNumber ?? '-'}</p> */}
               <p><b>ส่วนสูง:</b> {selected.height ?? '-'}</p>
               <p><b>น้ำหนัก:</b> {selected.weight ?? '-'}</p>
               <p><b>โรคประจำตัว:</b> {selected.congenitalDisease ?? '-'}</p>
