@@ -71,7 +71,13 @@ export default function AdminElderlyPage() {
       if (res.ok && (json.ok ?? true)) {
         const data = Array.isArray(json) ? json : json.data;
         setRows(data || []);
-        setTotal((Array.isArray(json) ? data?.length : json.total) ?? 0);
+
+        // ✅ แก้ไขส่วนนี้เท่านั้น เพื่อให้ "รวมรายการ" แสดงผลตามจำนวนจริง
+        setTotal(
+          data?.length ??
+            (Array.isArray(json) ? json.length : json.total) ??
+            0
+        );
       } else {
         setRows([]);
         setTotal(0);
@@ -166,37 +172,6 @@ export default function AdminElderlyPage() {
               ข้อมูลสุขภาพผู้สูงอายุ
             </h2>
             <div className="space-y-2 text-gray-700">
-              {/* <p>
-                <strong>ชื่อ-สกุล:</strong> {detail.data?.name ?? "-"}
-              </p>
-              <p>
-                <strong>เลขบัตรประชาชน:</strong> {detail.data?.citizenID ?? "-"}
-              </p>
-              <p>
-                <strong>เพศ:</strong> {genderLabel(detail.data?.gender)}
-              </p>
-              <p>
-                <strong>วันเกิด:</strong> {fmtDate(detail.data?.birthDate)}
-              </p>
-              <p>
-                <strong>อายุ:</strong> {detail.data?.age ?? "-"}
-              </p>
-              <p>
-                <strong>โทร:</strong>{" "}
-                {detail.data?.phoneNumber ?? detail.data?.phonNumber ?? "-"}
-              </p>
-              <p>
-                <strong>ที่อยู่:</strong> {detail.data?.address ?? "-"}
-              </p>
-              <p>
-                <strong>ตำบล/อำเภอ/จังหวัด:</strong>{" "}
-                {[detail.data?.subdistrict, detail.data?.district, detail.data?.province]
-                  .filter(Boolean)
-                  .join(" / ") || "-"}
-              </p>
-              <p>
-                <strong>พิกัด:</strong> {detail.data?.latlong ?? "-"}
-              </p> */}
               <p>
                 <strong>ส่วนสูง:</strong> {detail.data?.height ?? "-"} ซม.
               </p>
@@ -204,7 +179,8 @@ export default function AdminElderlyPage() {
                 <strong>น้ำหนัก:</strong> {detail.data?.weight ?? "-"} กก.
               </p>
               <p>
-                <strong>โรคประจำตัว:</strong> {detail.data?.congenitalDisease ?? "-"}
+                <strong>โรคประจำตัว:</strong>{" "}
+                {detail.data?.congenitalDisease ?? "-"}
               </p>
               <p>
                 <strong>หมายเหตุ:</strong> {detail.data?.note ?? "-"}
@@ -288,7 +264,7 @@ export default function AdminElderlyPage() {
           </form>
         </ClientOnly>
 
-        {/* ✅ ตารางที่เหลือเฉพาะบัตร+ชื่อ+ปุ่ม popup+แก้ไข+ลบ */}
+        {/* ✅ ตารางข้อมูล */}
         <div className="overflow-auto rounded-xl border border-gray-200">
           <table className="min-w-full text-sm">
             <thead className="bg-gray-100 text-gray-700">
@@ -321,7 +297,10 @@ export default function AdminElderlyPage() {
                   const name = r.name ?? r.fullName;
 
                   return (
-                    <tr key={id} className="border-t hover:bg-gray-50 transition">
+                    <tr
+                      key={id}
+                      className="border-t hover:bg-gray-50 transition"
+                    >
                       <td className="p-3">{r.citizenID ?? "-"}</td>
                       <td className="p-3">{name}</td>
                       <td className="p-3 text-center">
