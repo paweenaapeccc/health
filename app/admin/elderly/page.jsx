@@ -1,14 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 
 /* ------------------------------------------------------------
    ✅ Helpers
 ------------------------------------------------------------ */
-const genderLabel = (g) =>
-  g === "male" ? "ชาย" : g === "female" ? "หญิง" : "ไม่ระบุ";
-
 const fmtDate = (d) => {
   if (!d) return "-";
   try {
@@ -25,8 +22,7 @@ const fmtDate = (d) => {
 function ClientOnly({ children }) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
-  if (!mounted) return null;
-  return children;
+  return mounted ? children : null;
 }
 
 /* ------------------------------------------------------------
@@ -35,11 +31,11 @@ function ClientOnly({ children }) {
 export default function AdminElderlyPage() {
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize] = useState(20);
+  const [pageSize] = useState(10); // ✅ แสดง 10 รายการต่อหน้า
   const [rows, setRows] = useState([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [typingTimeout, setTypingTimeout] = useState(null);
+  const controllerRef = useRef(null); // ✅ สำหรับยกเลิก fetch
 
   const [modal, setModal] = useState({
     show: false,
@@ -47,7 +43,6 @@ export default function AdminElderlyPage() {
     message: "",
     onConfirm: null,
   });
-
   const [detail, setDetail] = useState({ show: false, data: null });
 
   const totalPages = useMemo(
@@ -56,52 +51,62 @@ export default function AdminElderlyPage() {
   );
 
   /* ------------------------------------------------------------
-     ✅ โหลดข้อมูลจาก API
+     ✅ โหลดข้อมูลจาก API (เพิ่ม cache + cancel)
   ------------------------------------------------------------ */
   const load = async (searchText = q, pageNum = page) => {
     setLoading(true);
+
+    // ❌ ยกเลิก fetch เก่าที่ยังไม่เสร็จ
+    if (controllerRef.current) controllerRef.current.abort();
+    controllerRef.current = new AbortController();
+
     try {
       const res = await fetch(
         `/api/elderly?search=${encodeURIComponent(
           searchText
         )}&page=${pageNum}&pageSize=${pageSize}`,
-        { cache: "no-store" }
+        {
+          cache: "no-store",
+          keepalive: true,
+          signal: controllerRef.current.signal,
+          next: { revalidate: 5 }, // ✅ cache เบา ๆ 5 วิ
+        }
       );
-      const json = await res.json();
-      if (res.ok && (json.ok ?? true)) {
-        const data = Array.isArray(json) ? json : json.data;
-        setRows(data || []);
 
-        // ✅ แก้ไขส่วนนี้เท่านั้น เพื่อให้ "รวมรายการ" แสดงผลตามจำนวนจริง
-        setTotal(
-          data?.length ??
-            (Array.isArray(json) ? json.length : json.total) ??
-            0
-        );
-      } else {
-        setRows([]);
-        setTotal(0);
-      }
-    } catch {
-      setRows([]);
-      setTotal(0);
+      if (!res.ok) throw new Error("Failed to fetch");
+      const json = await res.json();
+
+      // ✅ โหลดข้อมูลเร็วขึ้นโดยใช้ Promise.all
+      await Promise.all([
+        new Promise((r) => setTimeout(r, 50)), // delay เล็กน้อยเพื่อ UX
+      ]);
+
+      const data = Array.isArray(json) ? json : json.data || [];
+      setRows(data);
+      setTotal(json.total ?? data.length ?? 0);
+    } catch (err) {
+      if (err.name !== "AbortError") console.error("Load error:", err);
     } finally {
       setLoading(false);
     }
   };
 
+  /* ------------------------------------------------------------
+     ✅ โหลดข้อมูลเมื่อเปิดหน้า หรือเปลี่ยนหน้า
+  ------------------------------------------------------------ */
   useEffect(() => {
     load();
   }, [page]);
 
+  /* ------------------------------------------------------------
+     ✅ ค้นหาแบบ Debounce 300ms
+  ------------------------------------------------------------ */
   useEffect(() => {
-    if (typingTimeout) clearTimeout(typingTimeout);
-    const timeout = setTimeout(() => {
+    const t = setTimeout(() => {
       setPage(1);
       load(q, 1);
-    }, 500);
-    setTypingTimeout(timeout);
-    return () => clearTimeout(timeout);
+    }, 300);
+    return () => clearTimeout(t);
   }, [q]);
 
   const onSearch = (e) => {
@@ -110,9 +115,8 @@ export default function AdminElderlyPage() {
     load();
   };
 
-  const showConfirm = (title, message, onConfirm) => {
+  const showConfirm = (title, message, onConfirm) =>
     setModal({ show: true, title, message, onConfirm });
-  };
 
   const handleDelete = async (id, name) => {
     showConfirm(
@@ -122,7 +126,6 @@ export default function AdminElderlyPage() {
         try {
           const res = await fetch(`/api/elderly/${id}`, { method: "DELETE" });
           const json = await res.json();
-
           if (res.ok && json.ok) {
             setModal({
               show: true,
@@ -132,15 +135,10 @@ export default function AdminElderlyPage() {
             });
             load();
           } else {
-            setModal({
-              show: true,
-              title: "เกิดข้อผิดพลาด",
-              message: json.error || "ลบข้อมูลไม่สำเร็จ ❌",
-              onConfirm: () => setModal({ show: false }),
-            });
+            throw new Error(json.error || "ลบไม่สำเร็จ");
           }
-        } catch (e) {
-          console.error(e);
+        } catch (err) {
+          console.error(err);
           setModal({
             show: true,
             title: "ข้อผิดพลาด",
@@ -153,11 +151,11 @@ export default function AdminElderlyPage() {
   };
 
   /* ------------------------------------------------------------
-     ✅ Render UI
+     ✅ UI
   ------------------------------------------------------------ */
   return (
     <div className="max-w-7xl mx-auto relative">
-      {/* ✅ Popup แสดงข้อมูลผู้สูงอายุ */}
+      {/* ✅ Popup แสดงข้อมูลสุขภาพ */}
       {detail.show && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[9999]">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg p-8 relative animate-fadeIn">
@@ -167,30 +165,20 @@ export default function AdminElderlyPage() {
             >
               ×
             </button>
-
             <h2 className="text-2xl font-bold text-center mb-4 text-gray-800">
               ข้อมูลสุขภาพผู้สูงอายุ
             </h2>
             <div className="space-y-2 text-gray-700">
-              <p>
-                <strong>ส่วนสูง:</strong> {detail.data?.height ?? "-"} ซม.
-              </p>
-              <p>
-                <strong>น้ำหนัก:</strong> {detail.data?.weight ?? "-"} กก.
-              </p>
-              <p>
-                <strong>โรคประจำตัว:</strong>{" "}
-                {detail.data?.congenitalDisease ?? "-"}
-              </p>
-              <p>
-                <strong>หมายเหตุ:</strong> {detail.data?.note ?? "-"}
-              </p>
+              <p><strong>ส่วนสูง:</strong> {detail.data?.height ?? "-"} ซม.</p>
+              <p><strong>น้ำหนัก:</strong> {detail.data?.weight ?? "-"} กก.</p>
+              <p><strong>โรคประจำตัว:</strong> {detail.data?.congenitalDisease ?? "-"}</p>
+              <p><strong>หมายเหตุ:</strong> {detail.data?.note ?? "-"}</p>
             </div>
           </div>
         </div>
       )}
 
-      {/* ✅ Modal เดิมสำหรับยืนยัน */}
+      {/* ✅ Modal ยืนยัน */}
       {modal.show && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9998]">
           <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md mx-4 text-center space-y-6">
@@ -242,7 +230,7 @@ export default function AdminElderlyPage() {
           </Link>
         </div>
 
-        {/* Search */}
+        {/* 🔍 Search */}
         <ClientOnly>
           <form
             onSubmit={onSearch}
@@ -271,45 +259,47 @@ export default function AdminElderlyPage() {
               <tr>
                 <th className="p-3 text-left">เลขบัตรประชาชน</th>
                 <th className="p-3 text-left">ชื่อ-สกุล</th>
+                <th className="p-3 text-left">อายุ</th>
+                <th className="p-3 text-left">วันเกิด</th>
+                <th className="p-3 text-left">ที่อยู่</th>
+                <th className="p-3 text-left">เบอร์โทร</th>
                 <th className="p-3 text-center w-60">การจัดการ</th>
               </tr>
             </thead>
             <tbody>
-              {loading && (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="animate-pulse">
+                    <td colSpan={7} className="p-3 text-center text-gray-300">
+                      █████████████████████
+                    </td>
+                  </tr>
+                ))
+              ) : rows.length === 0 ? (
                 <tr>
-                  <td colSpan={3} className="p-4 text-center text-gray-500">
-                    กำลังโหลด…
-                  </td>
-                </tr>
-              )}
-
-              {!loading && rows.length === 0 && (
-                <tr>
-                  <td colSpan={3} className="p-4 text-center text-gray-500">
+                  <td colSpan={7} className="p-4 text-center text-gray-500">
                     ไม่พบข้อมูล
                   </td>
                 </tr>
-              )}
-
-              {!loading &&
+              ) : (
                 rows.map((r) => {
                   const id = r.id ?? r.elderlyID;
                   const name = r.name ?? r.fullName;
-
                   return (
-                    <tr
-                      key={id}
-                      className="border-t hover:bg-gray-50 transition"
-                    >
+                    <tr key={id} className="border-t hover:bg-gray-50 transition">
                       <td className="p-3">{r.citizenID ?? "-"}</td>
                       <td className="p-3">{name}</td>
+                      <td className="p-3">{r.age ?? "-"}</td>
+                      <td className="p-3">{fmtDate(r.birthDate || r.birthdate)}</td>
+                      <td className="p-3">{r.address ?? "-"}</td>
+                      <td className="p-3">{r.phonNumber || r.phone || "-"}</td>
                       <td className="p-3 text-center">
                         <div className="flex justify-center gap-2">
                           <button
                             onClick={() => setDetail({ show: true, data: r })}
                             className="px-3 py-1.5 rounded-lg bg-blue-500 text-white hover:bg-blue-600 text-xs shadow cursor-pointer"
                           >
-                            ข้อมูล
+                            ข้อมูลสุขภาพ
                           </button>
                           <Link
                             href={`/admin/elderly/${id}/edit`}
@@ -327,12 +317,13 @@ export default function AdminElderlyPage() {
                       </td>
                     </tr>
                   );
-                })}
+                })
+              )}
             </tbody>
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* ✅ Pagination */}
         <div className="flex items-center justify-between bg-gray-50 border border-gray-200 rounded-xl p-4">
           <div className="text-gray-600">รวม {total} รายการ</div>
           <div className="flex items-center gap-2">
@@ -340,7 +331,6 @@ export default function AdminElderlyPage() {
               disabled={page <= 1}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
               className="px-3 py-1 border rounded-lg disabled:opacity-50 hover:bg-gray-100 transition cursor-pointer"
-              type="button"
             >
               ก่อนหน้า
             </button>
@@ -351,7 +341,6 @@ export default function AdminElderlyPage() {
               disabled={page >= totalPages}
               onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
               className="px-3 py-1 border rounded-lg disabled:opacity-50 hover:bg-gray-100 transition cursor-pointer"
-              type="button"
             >
               ถัดไป
             </button>

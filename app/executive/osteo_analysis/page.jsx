@@ -1,18 +1,16 @@
 "use client";
-
+import { useEffect, useState, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
-import { useEffect, useMemo, useState, useRef } from "react";
 
 const ENDPOINT = "/api/reports/maps_oa";
-const ELDERLY_API = "/api/elderly"; // ✅ endpoint สำหรับดึงข้อมูลรายบุคคล
+const ELDERLY_API = "/api/elderly";
 
-/* ---------- Helper ---------- */
-const toNumber = (v) =>
-  v === null || v === undefined || v === "" ? null : Number(v);
+function toNumber(v) {
+  return v === null || v === undefined || v === "" ? null : Number(v);
+}
 
 function haversineKm(lat1, lon1, lat2, lon2) {
-  if ([lat1, lon1, lat2, lon2].some((x) => x == null || Number.isNaN(Number(x))))
-    return null;
+  if ([lat1, lon1, lat2, lon2].some((x) => x == null || Number.isNaN(Number(x)))) return null;
   const R = 6371;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
@@ -23,210 +21,155 @@ function haversineKm(lat1, lon1, lat2, lon2) {
       Math.sin(dLon / 2) ** 2;
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
-function roadDistanceApprox(lat1, lon1, lat2, lon2) {
-  const straight = haversineKm(lat1, lon1, lat2, lon2);
-  return straight ? straight * 1.3 : null;
-}
-function calcYesCount(row) {
-  const keys = [
-    "stiffness",
-    "crepitus",
-    "bonyTenderness",
-    "bonyEnlargement",
-    "noWarmth",
-  ];
-  return keys.reduce((acc, k) => acc + (row?.[k] ? 1 : 0), 0);
-}
-function oaSeverity(yesCount) {
-  if (yesCount >= 4) return "รุนแรง";
-  if (yesCount >= 2) return "ปานกลาง";
-  return "น้อย/ไม่มี";
-}
-function carePlan(severity) {
-  switch (severity) {
-    case "รุนแรง":
-      return [
+const roadDistanceApprox = (lat1, lon1, lat2, lon2) =>
+  haversineKm(lat1, lon1, lat2, lon2) * 1.3 || null;
+
+const calcYesCount = (r) =>
+  ["stiffness", "crepitus", "bonyTenderness", "bonyEnlargement", "noWarmth"].reduce(
+    (a, k) => a + (r?.[k] ? 1 : 0),
+    0
+  );
+
+const oaSeverity = (c) => (c >= 4 ? "รุนแรง" : c >= 2 ? "ปานกลาง" : "น้อย/ไม่มี");
+const carePlan = (s) =>
+  s === "รุนแรง"
+    ? [
         "ออกกำลังกายเบา ๆ เช่น เดินหรือยืดเหยียด",
         "ตรวจข้อเข่าเดือนละครั้ง",
         "ให้โรงพยาบาลติดตามอาการต่อเนื่อง",
-      ];
-    case "ปานกลาง":
-      return [
-        "ออกกำลังกายเสริมกล้ามเนื้อขา",
-        "ควบคุมน้ำหนัก",
-        "ประเมินอาการทุก 3 เดือน",
-      ];
-    default:
-      return [
-        "ส่งเสริมการเคลื่อนไหว",
-        "รับประทานอาหารครบ 5 หมู่",
-        "ตรวจสุขภาพประจำปี",
-      ];
-  }
-}
+      ]
+    : s === "ปานกลาง"
+    ? ["ออกกำลังกายเสริมกล้ามเนื้อขา", "ควบคุมน้ำหนัก", "ประเมินอาการทุก 3 เดือน"]
+    : ["ส่งเสริมการเคลื่อนไหว", "รับประทานอาหารครบ 5 หมู่", "ตรวจสุขภาพประจำปี"];
 
-/* ---------- Main Page ---------- */
 function OATravelAnalysisPage() {
-  const [loading, setLoading] = useState(true);
   const [rows, setRows] = useState([]);
-  const [filterSeverity, setFilterSeverity] = useState("ทั้งหมด");
-  const [selectedPerson, setSelectedPerson] = useState(null);
-  const [personDetail, setPersonDetail] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("ทั้งหมด");
+  const [summary, setSummary] = useState({ total: 0, severe: 0, moderate: 0, low: 0 });
+
+  const [selected, setSelected] = useState(null);
+  const [detail, setDetail] = useState(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
-
-  const [hospitalLatLong] = useState("14.921865811051898,103.30055440886561");
-
+  const hospitalLatLong = "14.921865811051898,103.30055440886561";
   const tableRef = useRef(null);
 
-  // ✅ โหลดข้อมูลผู้สูงอายุทั้งหมด
+  // ✅ โหลดข้อมูลหลัก
   useEffect(() => {
+    const controller = new AbortController();
     const load = async () => {
-      setLoading(true);
       try {
-        const res = await fetch(ENDPOINT, { cache: "no-store" });
+        setLoading(true);
+        const res = await fetch(ENDPOINT, { cache: "no-store", signal: controller.signal });
         const json = await res.json();
-        setRows(Array.isArray(json) ? json : json?.rows || []);
-      } catch {
-        setRows([]);
+        const data = Array.isArray(json) ? json : json?.rows || [];
+
+        const [hLat, hLng] = hospitalLatLong.split(",").map((x) => Number(x.trim()));
+        const enriched = data.map((r) => {
+          const yes = calcYesCount(r);
+          const sev = oaSeverity(yes);
+          return {
+            ...r,
+            yesCount: yes,
+            severity: sev,
+            distanceKm: roadDistanceApprox(toNumber(r.latitude), toNumber(r.longitude), hLat, hLng),
+            plan: carePlan(sev),
+          };
+        });
+
+        // ✅ รวมสรุป
+        setSummary({
+          total: enriched.length,
+          severe: enriched.filter((r) => r.severity === "รุนแรง").length,
+          moderate: enriched.filter((r) => r.severity === "ปานกลาง").length,
+          low: enriched.filter((r) => r.severity === "น้อย/ไม่มี").length,
+        });
+        setRows(enriched);
+      } catch (e) {
+        if (e.name !== "AbortError") console.error("load error:", e);
       } finally {
         setLoading(false);
       }
     };
     load();
+    return () => controller.abort();
   }, []);
 
-  // ✅ enrich
-  const enriched = useMemo(() => {
-    const [latStr, lngStr] = hospitalLatLong.split(",").map((x) => x.trim());
-    const hLat = Number(latStr),
-      hLng = Number(lngStr);
-    return rows.map((r) => {
-      const yes = calcYesCount(r);
-      const sev = oaSeverity(yes);
-      const dist = roadDistanceApprox(
-        toNumber(r.latitude),
-        toNumber(r.longitude),
-        hLat,
-        hLng
-      );
-      return { ...r, yesCount: yes, severity: sev, distanceKm: dist, plan: carePlan(sev) };
-    });
-  }, [rows]);
-
-  const summary = useMemo(() => {
-    const total = enriched.length;
-    const severe = enriched.filter((r) => r.severity === "รุนแรง").length;
-    const moderate = enriched.filter((r) => r.severity === "ปานกลาง").length;
-    const low = enriched.filter((r) => r.severity === "น้อย/ไม่มี").length;
-    return { total, severe, moderate, low };
-  }, [enriched]);
-
   const filtered =
-    filterSeverity === "ทั้งหมด"
-      ? enriched
-      : enriched.filter((r) => r.severity === filterSeverity);
+    filter === "ทั้งหมด" ? rows : rows.filter((r) => r.severity === filter);
 
-  const handleFilterClick = (type) => {
-    setFilterSeverity(type);
-    setTimeout(() => {
-      tableRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, 100);
-  };
+  const handleFilter = useCallback((t) => {
+    setFilter(t);
+    tableRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, []);
 
-  // ✅ โหลดข้อมูลรายบุคคล
-  const fetchElderlyDetail = async (id) => {
+  // ✅ โหลดข้อมูลรายบุคคลเฉพาะเมื่อเปิด modal
+  const fetchDetail = useCallback(async (id) => {
     setLoadingDetail(true);
     try {
       const res = await fetch(`${ELDERLY_API}/${id}`, { cache: "no-store" });
       const data = await res.json();
-      setPersonDetail(data?.data || null);
+      setDetail(data?.data || null);
     } catch {
-      setPersonDetail(null);
+      setDetail(null);
     } finally {
       setLoadingDetail(false);
     }
+  }, []);
+
+  const openModal = (r) => {
+    setSelected(r);
+    fetchDetail(r.elderlyID);
   };
 
-  const handleSelectPerson = (r) => {
-    setSelectedPerson(r);
-    fetchElderlyDetail(r.elderlyID); // ดึงข้อมูลเต็มตาม ID
+  const closeModal = () => {
+    setSelected(null);
+    setDetail(null);
   };
 
   return (
-    <div className="min-h-screen  py-20">
-      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-lg border border-gray-200 p-8 space-y-10">
-        <h1 className="text-3xl font-bold text-center text-gray-800 mb-4">
+    <div className="min-h-screen py-20">
+      <div className="max-w-7xl mx-auto bg-white rounded-2xl shadow-lg border p-8 space-y-8">
+        <h1 className="text-3xl font-bold text-center text-gray-800">
           📊 วิเคราะห์ข้อมูลผู้สูงอายุเพื่อวางแผนการดูแล
         </h1>
 
-        {/* ✅ Dashboard */}
-        <section className="">
-          <h2 className="text-lg font-semibold text-indigo-800 mb-4">
-            ผลการวิเคราะห์เบื้องต้น
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
-            {[
-              {
-                label: "รวมผู้สูงอายุทั้งหมด",
-                count: summary.total,
-                color: "black",
-                type: "ทั้งหมด",
-              },
-              {
-                label: "กลุ่มเสี่ยงรุนแรง",
-                count: summary.severe,
-                color: "red",
-                type: "รุนแรง",
-              },
-              {
-                label: "กลุ่มเสี่ยงปานกลาง",
-                count: summary.moderate,
-                color: "amber",
-                type: "ปานกลาง",
-              },
-              {
-                label: "กลุ่มเสี่ยงน้อย/ไม่มี",
-                count: summary.low,
-                color: "green",
-                type: "น้อย/ไม่มี",
-              },
-            ].map((box, i) => (
-              <div
-                key={i}
-                onClick={() => handleFilterClick(box.type)}
-                className={`p-4 bg-${box.color}-50 rounded-xl border cursor-pointer transition hover:scale-105 ${
-                  filterSeverity === box.type ? `ring-2 ring-${box.color}-400` : ""
-                }`}
-              >
-                <p className={`text-2xl font-bold text-${box.color}-700`}>
-                  {box.count}
-                </p>
-                <p>{box.label}</p>
-              </div>
-            ))}
-          </div>
-        </section>
+        {/* Dashboard */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+          {[
+            { label: "รวมทั้งหมด", count: summary.total, color: "black", type: "ทั้งหมด" },
+            { label: "รุนแรง", count: summary.severe, color: "red", type: "รุนแรง" },
+            { label: "ปานกลาง", count: summary.moderate, color: "amber", type: "ปานกลาง" },
+            { label: "น้อย/ไม่มี", count: summary.low, color: "green", type: "น้อย/ไม่มี" },
+          ].map((b, i) => (
+            <div
+              key={i}
+              onClick={() => handleFilter(b.type)}
+              className={`p-4 bg-${b.color}-50 rounded-xl border cursor-pointer hover:scale-105 transition ${
+                filter === b.type ? `ring-2 ring-${b.color}-400` : ""
+              }`}
+            >
+              <p className={`text-2xl font-bold text-${b.color}-700`}>{b.count}</p>
+              <p>{b.label}</p>
+            </div>
+          ))}
+        </div>
 
-        {/* ✅ ตาราง */}
+        {/* ตาราง */}
         <section ref={tableRef}>
-          <div className="flex justify-between items-center mb-2">
-            <h3 className="font-semibold text-gray-700">
-              แสดงข้อมูล:{" "}
-              {filterSeverity === "ทั้งหมด"
-                ? "ทุกกลุ่ม"
-                : `เฉพาะ${filterSeverity}`}
-            </h3>
+          <div className="flex justify-between mb-2 text-gray-700 font-medium">
+            แสดง: {filter === "ทั้งหมด" ? "ทุกกลุ่ม" : `เฉพาะ${filter}`}
           </div>
 
           <div className="rounded-xl border overflow-x-auto shadow-sm">
             <table className="min-w-full text-sm">
-              <thead className="bg-gray-100 text-gray-800">
+              <thead className="bg-gray-100">
                 <tr>
                   <th className="p-3 text-left">ชื่อ</th>
                   <th className="p-3 text-left">ที่อยู่</th>
                   <th className="p-3 text-center">ความรุนแรง</th>
                   <th className="p-3 text-center">แผนการดูแล</th>
-                  <th className="p-3 text-center">ข้อมูลผู้สูงอายุ</th>
+                  <th className="p-3 text-center">ข้อมูล</th>
                 </tr>
               </thead>
               <tbody>
@@ -239,9 +182,7 @@ function OATravelAnalysisPage() {
                 ) : (
                   filtered.map((r, i) => (
                     <tr key={i} className="border-t hover:bg-gray-50">
-                      <td className="p-3 font-semibold text-gray-800">
-                        {r.name}
-                      </td>
+                      <td className="p-3 font-semibold">{r.name}</td>
                       <td className="p-3">{r.address}</td>
                       <td className="p-3 text-center">
                         <span
@@ -256,10 +197,8 @@ function OATravelAnalysisPage() {
                           {r.severity}
                         </span>
                       </td>
-
-                      {/* ✅ ปรับให้อยู่ตรงกลางแนวตั้ง + แนวนอน */}
-                      <td className="p-3 text-xs text-center align-middle">
-                        <ul className="w-[250px] mx-auto text-left list-disc list-inside space-y-1">
+                      <td className="p-3 text-xs text-left align-middle">
+                        <ul className="list-disc list-inside space-y-1">
                           {r.plan.map((p, idx) => (
                             <li key={idx}>{p}</li>
                           ))}
@@ -267,7 +206,7 @@ function OATravelAnalysisPage() {
                       </td>
                       <td className="p-3 text-center">
                         <button
-                          onClick={() => handleSelectPerson(r)}
+                          onClick={() => openModal(r)}
                           className="px-3 py-1 bg-blue-600 text-white text-xs rounded-lg hover:bg-blue-700 transition"
                         >
                           ข้อมูลผู้สูงอายุ
@@ -281,60 +220,37 @@ function OATravelAnalysisPage() {
           </div>
         </section>
 
-        {/* ✅ Modal รายละเอียดผู้สูงอายุ */}
-        {selectedPerson && (
+        {/* Modal */}
+        {selected && (
           <div
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]"
-            onClick={() => {
-              setSelectedPerson(null);
-              setPersonDetail(null);
-            }}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+            onClick={closeModal}
           >
             <div
               className="bg-white rounded-2xl p-6 w-full max-w-lg shadow-xl relative"
               onClick={(e) => e.stopPropagation()}
             >
               <button
-                onClick={() => {
-                  setSelectedPerson(null);
-                  setPersonDetail(null);
-                }}
+                onClick={closeModal}
                 className="absolute top-3 right-3 text-gray-500 hover:text-gray-800"
               >
                 ✕
               </button>
-              <h2 className="text-xl font-bold text-gray-800 mb-4 text-center">
-                ข้อมูลผู้สูงอายุ
-              </h2>
-
+              <h2 className="text-xl font-bold text-center mb-4">ข้อมูลผู้สูงอายุ</h2>
               {loadingDetail ? (
-                <p className="text-center text-gray-500 py-4">กำลังโหลดข้อมูล...</p>
-              ) : personDetail ? (
+                <p className="text-center text-gray-500 py-4">กำลังโหลด...</p>
+              ) : detail ? (
                 <div className="space-y-2 text-sm text-gray-800">
-                  <p><strong>ชื่อ-สกุล:</strong> {personDetail.name}</p>
-                  <p><strong>เลขบัตรประชาชน:</strong> {personDetail.citizenID}</p>
-                  <p><strong>เพศ: </strong>{personDetail.genderTh || '-'}</p>
-                  <p><strong>วันเกิด:</strong> {personDetail.birthTh || '-'}</p>
-                  <p><strong>อายุ:</strong> {personDetail.age} ปี</p>
-                  <p><strong>โทร:</strong> {personDetail.phone}</p>
-                  <p><strong>ที่อยู่:</strong> {personDetail.address}</p>
-                  <p>
-                    <strong>ตำบล/อำเภอ/จังหวัด:</strong>{" "}
-                    {personDetail.subdistrict} / {personDetail.district} / {personDetail.province}
-                  </p>
-                  <p>
-                    <strong>พิกัด:</strong>{" "}
-                    {personDetail.latitude}, {personDetail.longitude}
-                  </p>
-                  <p><strong>ส่วนสูง:</strong> {personDetail.height} ซม.</p>
-                  <p><strong>น้ำหนัก:</strong> {personDetail.weight} กก.</p>
-                  <p><strong>โรคประจำตัว:</strong> {personDetail.disease || "-"}</p>
-                  <p><strong>หมายเหตุ:</strong> {personDetail.note || "-"}</p>
+                  <p><b>ชื่อ:</b> {detail.name}</p>
+                  <p><b>เลขบัตร:</b> {detail.citizenID}</p>
+                  <p><b>เพศ:</b> {detail.genderTh || "-"}</p>
+                  <p><b>อายุ:</b> {detail.age} ปี</p>
+                  <p><b>โทร:</b> {detail.phone}</p>
+                  <p><b>ที่อยู่:</b> {detail.address}</p>
+                  <p><b>โรคประจำตัว:</b> {detail.disease || "-"}</p>
                 </div>
               ) : (
-                <p className="text-center text-gray-500 py-4">
-                  ไม่พบข้อมูลผู้สูงอายุ
-                </p>
+                <p className="text-center text-gray-500 py-4">ไม่พบข้อมูล</p>
               )}
             </div>
           </div>

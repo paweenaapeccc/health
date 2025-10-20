@@ -9,7 +9,16 @@ const secretMap = {
 
 export async function POST(req) {
   try {
-    const { username, password, role, secret } = await req.json()
+    const {
+      username,
+      password,
+      role,
+      secret,
+      firstName,
+      lastName,
+      email,
+      phone,
+    } = await req.json()
 
     if (!username || !password || !role) {
       return new Response(
@@ -18,7 +27,7 @@ export async function POST(req) {
       )
     }
 
-    // ถ้า role เป็น admin หรือ executive ต้องมี secret และต้องถูกต้อง
+    // ✅ ตรวจสอบรหัสลับเฉพาะบทบาท admin / executive เท่านั้น
     if ((role === 'admin' || role === 'executive') && secret !== secretMap[role]) {
       return new Response(
         JSON.stringify({ message: 'รหัสลับไม่ถูกต้องสำหรับบทบาทนี้' }),
@@ -28,7 +37,7 @@ export async function POST(req) {
 
     const db = await connectDB()
 
-    // เช็คซ้ำ username
+    // ✅ เช็คซ้ำ username
     const [existing] = await db.query('SELECT * FROM user WHERE username = ?', [username])
     if (existing.length > 0) {
       return new Response(
@@ -37,15 +46,24 @@ export async function POST(req) {
       )
     }
 
-    // เข้ารหัสรหัสผ่าน
+    // ✅ เข้ารหัสรหัสผ่าน
     const hashedPassword = await bcrypt.hash(password, 10)
 
-    // insert ลง DB
-    await db.query('INSERT INTO user (username, password, role) VALUES (?, ?, ?)', [
-      username,
-      hashedPassword,
-      role,
-    ])
+    // ✅ เพิ่มข้อมูลลง DB พร้อมฟิลด์ใหม่ (ไม่แตะ logic เดิม)
+    await db.query(
+      `INSERT INTO user (userID, firstName, lastName, email, phone, username, password, role)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        generateUserID(),
+        firstName || '',
+        lastName || '',
+        email || '',
+        phone || '',
+        username,
+        hashedPassword,
+        role,
+      ]
+    )
 
     return new Response(
       JSON.stringify({ message: 'สมัครสมาชิกสำเร็จ' }),
@@ -58,4 +76,10 @@ export async function POST(req) {
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     )
   }
+}
+
+/* ✅ ฟังก์ชันสร้าง userID อัตโนมัติ เช่น U00001 */
+function generateUserID() {
+  const n = Math.floor(100000 + Math.random() * 900000).toString().slice(1)
+  return 'U' + n
 }

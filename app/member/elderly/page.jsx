@@ -1,20 +1,9 @@
-'use client' 
+'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useTransition, Suspense, useRef } from 'react'
 import Link from 'next/link'
 
-/* ------------------------------------------------------------
-   🔹 เพศ: ชาย / หญิง เท่านั้น
------------------------------------------------------------- */
-const genderLabel = (g) => {
-  if (g === 'male') return 'ชาย'
-  if (g === 'female') return 'หญิง'
-  return '-'
-}
-
-/* ------------------------------------------------------------
-   🔹 ฟอร์แมตรูปแบบวันที่เป็นไทย
------------------------------------------------------------- */
+const genderLabel = (g) => (g === 'male' ? 'ชาย' : g === 'female' ? 'หญิง' : '-')
 const fmtDate = (d) => {
   if (!d) return '-'
   try {
@@ -28,116 +17,100 @@ const fmtDate = (d) => {
   }
 }
 
-/* ------------------------------------------------------------
-   🔹 แสดงผลเฉพาะเมื่อ Client mount แล้ว
------------------------------------------------------------- */
-function ClientOnly({ children }) {
-  const [mounted, setMounted] = useState(false)
-  useEffect(() => setMounted(true), [])
-  if (!mounted) return null
-  return children
-}
-
-/* ------------------------------------------------------------
-   🔹 หน้ารายการข้อมูลผู้สูงอายุ (แสดงเฉพาะเลขบัตร + ชื่อ)
------------------------------------------------------------- */
 export default function MemberElderlyPage() {
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
-  const [pageSize] = useState(20)
+  const [pageSize] = useState(10)
   const [rows, setRows] = useState([])
   const [total, setTotal] = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [typingTimeout, setTypingTimeout] = useState(null)
-  const [selected, setSelected] = useState(null) // ✅ modal ข้อมูล
+  const [loading, setLoading] = useState(true)
+  const [selected, setSelected] = useState(null)
+  const [isPending, startTransition] = useTransition()
+  const controllerRef = useRef(null)
+  const cacheRef = useRef(new Map()) // ✅ cache ข้อมูลใน memory
 
-  /* ----------------------------------------------------------
-     🔹 คำนวณจำนวนหน้าทั้งหมด
-  ---------------------------------------------------------- */
-  const totalPages = useMemo(
-    () => Math.max(Math.ceil(total / pageSize), 1),
-    [total, pageSize]
-  )
+  const totalPages = useMemo(() => Math.max(Math.ceil(total / pageSize), 1), [total, pageSize])
 
-  /* ----------------------------------------------------------
-     🔹 โหลดข้อมูลจาก API
-  ---------------------------------------------------------- */
+  /* ----------------------------------------
+     ✅ โหลดข้อมูล (พร้อม cache และ cancel request)
+  ---------------------------------------- */
   const load = async (searchText = q, pageNum = page) => {
     setLoading(true)
     try {
+      const cacheKey = `${searchText}-${pageNum}`
+      if (cacheRef.current.has(cacheKey)) {
+        startTransition(() => {
+          const cached = cacheRef.current.get(cacheKey)
+          setRows(cached.rows)
+          setTotal(cached.total)
+          setLoading(false)
+        })
+        return
+      }
+
+      if (controllerRef.current) controllerRef.current.abort()
+      controllerRef.current = new AbortController()
+
       const res = await fetch(
         `/api/elderly?search=${encodeURIComponent(searchText)}&page=${pageNum}&pageSize=${pageSize}`,
-        { cache: 'no-store' }
+        {
+          signal: controllerRef.current.signal,
+          cache: 'force-cache',
+          next: { revalidate: 15 },
+        }
       )
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const json = await res.json()
-      if (res.ok && (json.ok ?? true)) {
-        const data = Array.isArray(json) ? json : json.data
+      const data = Array.isArray(json) ? json : json.data
+      const totalRows = json.total ?? data.length ?? 0
+
+      startTransition(() => {
         setRows(data || [])
-        // ✅ แก้ตรงนี้เท่านั้น — เพื่อให้ "รวมรายการ" แสดงถูกต้อง
-        setTotal(data?.length ?? (Array.isArray(json) ? json.length : json.total) ?? 0)
-      } else {
-        setRows([])
-        setTotal(0)
-      }
-    } catch {
-      setRows([])
-      setTotal(0)
+        setTotal(totalRows)
+        cacheRef.current.set(cacheKey, { rows: data, total: totalRows })
+      })
+    } catch (err) {
+      if (err.name !== 'AbortError') console.error(err)
     } finally {
       setLoading(false)
     }
   }
 
-  /* ----------------------------------------------------------
-     🔹 โหลดข้อมูลเมื่อเปิดหน้า
-  ---------------------------------------------------------- */
   useEffect(() => {
     load()
   }, [page])
 
-  /* ----------------------------------------------------------
-     🔹 ระบบค้นหาอัตโนมัติ (Debounce)
-  ---------------------------------------------------------- */
+  /* ----------------------------------------
+     ✅ ระบบค้นหา (Debounce + cancel request)
+  ---------------------------------------- */
   useEffect(() => {
-    if (typingTimeout) clearTimeout(typingTimeout)
-    const timeout = setTimeout(() => {
+    const timer = setTimeout(() => {
       setPage(1)
       load(q, 1)
-    }, 0)
-    setTypingTimeout(timeout)
-    return () => clearTimeout(timeout)
+    }, 400)
+    return () => clearTimeout(timer)
   }, [q])
 
-  /* ----------------------------------------------------------
-     🔹 คำนวณอายุจากวันเกิด
-  ---------------------------------------------------------- */
-  const calcAge = (birthDate) => {
-    if (!birthDate) return '-'
-    const birth = new Date(birthDate)
-    if (isNaN(birth)) return '-'
-    const today = new Date()
-    let age = today.getFullYear() - birth.getFullYear()
-    const m = today.getMonth() - birth.getMonth()
-    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--
-    return age
-  }
+  /* ----------------------------------------
+     ✅ แสดง Skeleton ตอนโหลด
+  ---------------------------------------- */
+  const SkeletonRow = () => (
+    <tr className="animate-pulse text-gray-400">
+      <td colSpan={7} className="p-3 text-center">
+        กำลังโหลดข้อมูล...
+      </td>
+    </tr>
+  )
 
-  /* ----------------------------------------------------------
-     🔹 เปิด / ปิด modal
-  ---------------------------------------------------------- */
-  const handleOpen = (r) => setSelected(r)
-  const closeModal = () => setSelected(null)
-
-  /* ----------------------------------------------------------
-     🔹 ส่วนแสดงผลหลัก
-  ---------------------------------------------------------- */
+  /* ----------------------------------------
+     ✅ ส่วนแสดงผลหลัก
+  ---------------------------------------- */
   return (
     <div className="max-w-5xl mx-auto bg-white p-8 rounded-3xl shadow-2xl space-y-8">
-
-      {/* ---------------- Header ---------------- */}
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-extrabold text-gray-800">
-          ข้อมูลผู้สูงอายุ
-        </h1>
+        <h1 className="text-3xl font-extrabold text-gray-800">ข้อมูลผู้สูงอายุ</h1>
         <Link
           href="/member/elderly/add"
           className="px-5 py-2.5 rounded-xl bg-blue-600 text-white shadow hover:bg-blue-700 transition"
@@ -146,78 +119,81 @@ export default function MemberElderlyPage() {
         </Link>
       </div>
 
-      {/* ---------------- Search ---------------- */}
-      <ClientOnly>
-        <div className="flex flex-col md:flex-row gap-4">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="พิมพ์เลขบัตรประชาชนหรือชื่อเพื่อค้นหา..."
-            className="flex-1 border border-gray-300 rounded-xl px-4 py-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-            autoComplete="off"
-          />
-          <button
-            onClick={() => { setPage(1); load(); }}
-            className="px-6 py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition shadow"
-            type="button"
-          >
-            ค้นหา
-          </button>
-        </div>
-      </ClientOnly>
+      {/* Search */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <input
+          value={q}
+          onChange={(e) => setQ(e.target.value)}
+          placeholder="พิมพ์เลขบัตรประชาชนหรือชื่อเพื่อค้นหา..."
+          className="flex-1 border border-gray-300 rounded-xl px-4 py-3 text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+          autoComplete="off"
+        />
+        <button
+          onClick={() => {
+            setPage(1)
+            load()
+          }}
+          className="px-6 py-3 rounded-xl bg-blue-600 text-white hover:bg-blue-700 transition shadow"
+          type="button"
+        >
+          {loading || isPending ? 'กำลังโหลด...' : 'ค้นหา'}
+        </button>
+      </div>
 
-      {/* ---------------- Table ---------------- */}
+      {/* Table */}
       <div className="overflow-x-auto border border-gray-200 rounded-2xl">
         <table className="min-w-full text-base text-gray-800">
           <thead className="bg-gray-50">
             <tr>
               <th className="p-3 text-left">เลขบัตรประชาชน</th>
               <th className="p-3 text-left">ชื่อ-สกุล</th>
+              <th className="p-3 text-center">อายุ</th>
+              <th className="p-3 text-left">วันเกิด</th>
+              <th className="p-3 text-left">ที่อยู่</th>
+              <th className="p-3 text-left">เบอร์โทร</th>
               <th className="p-3 text-center w-48"></th>
             </tr>
           </thead>
-
           <tbody>
-            {loading && (
-              <tr>
-                <td colSpan={3} className="p-4 text-center text-gray-500">
-                  กำลังโหลด…
-                </td>
-              </tr>
-            )}
-
-            {!loading && rows.length === 0 && (
-              <tr>
-                <td colSpan={3} className="p-4 text-center text-gray-500">
-                  ไม่พบข้อมูล
-                </td>
-              </tr>
-            )}
-
-            {!loading && rows.map((r) => {
-              const id = r.id ?? r.elderlyID
-              const name = r.name ?? r.fullName
-
-              return (
-                <tr key={id} className="border-t hover:bg-gray-50 transition">
-                  <td className="p-3">{r.citizenID ?? '-'}</td>
-                  <td className="p-3">{name}</td>
-                  <td className="p-3 text-center">
-                    <button
-                      onClick={() => handleOpen(r)}
-                      className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition shadow-md"
-                    >
-                      ข้อมูลสุขภาพ
-                    </button>
+            <Suspense fallback={<SkeletonRow />}>
+              {loading ? (
+                <SkeletonRow />
+              ) : rows.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="p-4 text-center text-gray-500">
+                    ไม่พบข้อมูล
                   </td>
                 </tr>
-              )
-            })}
+              ) : (
+                rows.map((r) => {
+                  const id = r.id ?? r.elderlyID
+                  const name = r.name ?? r.fullName
+                  return (
+                    <tr key={id} className="border-t hover:bg-gray-50 transition">
+                      <td className="p-3">{r.citizenID ?? '-'}</td>
+                      <td className="p-3">{name}</td>
+                      <td className="p-3 text-center">{r.age ?? '-'}</td>
+                      <td className="p-3">{fmtDate(r.birthDate || r.birthdate)}</td>
+                      <td className="p-3">{r.address ?? '-'}</td>
+                      <td className="p-3">{r.phonNumber || r.phone || '-'}</td>
+                      <td className="p-3 text-center">
+                        <button
+                          onClick={() => setSelected(r)}
+                          className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl transition shadow-md"
+                        >
+                          ข้อมูลสุขภาพ
+                        </button>
+                      </td>
+                    </tr>
+                  )
+                })
+              )}
+            </Suspense>
           </tbody>
         </table>
       </div>
 
-      {/* ---------------- Pagination ---------------- */}
+      {/* Pagination */}
       <div className="flex items-center justify-between pt-2">
         <div className="text-gray-700">รวม {total} รายการ</div>
         <div className="flex items-center gap-3">
@@ -225,7 +201,6 @@ export default function MemberElderlyPage() {
             disabled={page <= 1}
             onClick={() => setPage((p) => Math.max(1, p - 1))}
             className="px-4 py-2 border rounded-lg disabled:opacity-50 hover:bg-gray-50 transition"
-            type="button"
           >
             ก่อนหน้า
           </button>
@@ -236,31 +211,28 @@ export default function MemberElderlyPage() {
             disabled={page >= totalPages}
             onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
             className="px-4 py-2 border rounded-lg disabled:opacity-50 hover:bg-gray-50 transition"
-            type="button"
           >
             ถัดไป
           </button>
         </div>
       </div>
 
-      {/* ---------------- Modal (รายละเอียด) ---------------- */}
+      {/* Modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full mx-4 p-8 space-y-4 relative">
             <h2 className="text-2xl font-bold text-center text-emerald-600">
               ข้อมูลสุขภาพผู้สูงอายุ
             </h2>
-
             <div className="space-y-2 text-gray-800 text-lg">
               <p><b>ส่วนสูง:</b> {selected.height ?? '-'}</p>
               <p><b>น้ำหนัก:</b> {selected.weight ?? '-'}</p>
               <p><b>โรคประจำตัว:</b> {selected.congenitalDisease ?? '-'}</p>
               <p><b>หมายเหตุ:</b> {selected.note ?? '-'}</p>
             </div>
-
             <div className="pt-4 flex justify-center">
               <button
-                onClick={closeModal}
+                onClick={() => setSelected(null)}
                 className="px-6 py-2.5 bg-gray-600 text-white rounded-xl hover:bg-gray-700 transition shadow"
               >
                 ปิด

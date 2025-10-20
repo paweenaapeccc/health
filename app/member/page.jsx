@@ -1,43 +1,63 @@
 'use client'
+
 import Image from 'next/image'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useDeferredValue } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function HomePage() {
   const [role, setRole] = useState(null)
+  const deferredRole = useDeferredValue(role) // ✅ ลด re-render ระหว่างโหลด
   const router = useRouter()
 
+  /* ------------------------------------------------------------
+     ✅ โหลด token ด้วย requestIdleCallback (ไม่ block หน้า)
+  ------------------------------------------------------------ */
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    const storedRole = localStorage.getItem('role')
+    if (typeof window !== 'undefined') {
+      requestIdleCallback(() => {
+        const token = localStorage.getItem('token')
+        const storedRole = localStorage.getItem('role')
 
-    console.log('token:', token)
-    console.log('role:', storedRole)
+        console.log('token:', token)
+        console.log('role:', storedRole)
 
-    if (token && storedRole === 'user') {
-      setRole('user')
-    } else {
-      setRole(null)
+        if (token && storedRole === 'user') {
+          setRole('user')
+        } else {
+          setRole(null)
+        }
+      })
     }
   }, [])
+
+  /* ✅ preload รูปภาพแรกให้ขึ้นทันที */
+
+  const imageList = [
+    '/images/knee-left.png',
+    '/images/knee-right.png',
+    '/images/knee-top.png',
+    '/images/knee-bottom.png',
+    
+  ]
 
   return (
     <div>
       {/* ✅ Layout แบ่งเป็น 2 ฝั่ง */}
       <div className="flex flex-col md:flex-row items-start justify-center gap-10 px-4 md:px-12 py-7">
-        
-        {/* ✅ ฝั่งซ้าย — เนื้อหาทั้งหมด*/}
+
+        {/* ✅ ฝั่งซ้าย — เนื้อหาทั้งหมด */}
         <div className="flex-1 w-full max-w-4xl relative">
           <main className="flex-grow flex justify-center items-start">
             <div className="w-full max-w-4xl">
               {/* กล่องใหญ่สีเขียวอ่อน ครอบทุกอย่าง */}
               <section className="bg-teal-50 border border-teal-200 rounded-2xl shadow-md p-6 md:p-10 space-y-8">
+
                 {/* ✅ หัวข้อใหญ่ */}
                 <h1 className="text-2xl font-bold text-center text-teal-800">
                   รู้จักโรคข้อเข่าเสื่อม อาการ สาเหตุ พร้อมแนวทางการรักษาอย่างถูกวิธี
                 </h1>
 
-                {/* โรคข้อเข่าเสื่อมคืออะไร? */}
+                {/* ✅ โรคข้อเข่าเสื่อมคืออะไร? */}
                 <p className="text-gray-700 leading-relaxed">
                   <span className="font-bold text-teal-800">โรคข้อเข่าเสื่อมคืออะไร?</span><br />
                   โรคข้อเข่าเสื่อม (Knee Osteoarthritis) คือโรคที่เกิดจากความเสื่อมของกระดูกอ่อนผิวข้อเข่า 
@@ -49,7 +69,7 @@ export default function HomePage() {
                   หัวเข่าก็จะผิดรูป และไม่สามารถประกอบกิจวัตรประจำวันได้ตามปกติ
                 </p>
 
-                {/* สาเหตุของโรคข้อเข่าเสื่อม */}
+                {/* ✅ สาเหตุของโรคข้อเข่าเสื่อม */}
                 <section className="bg-white p-6 rounded-xl shadow-md space-y-4 mt-2 border border-gray-200">
                   <h2 className="text-2xl font-bold text-teal-700">
                     สาเหตุของโรคข้อเข่าเสื่อมมีอะไรบ้าง?
@@ -63,7 +83,6 @@ export default function HomePage() {
                     โดยแบ่งเป็น 2 กลุ่มใหญ่:
                   </p>
 
-                  {/* 1. ปฐมภูมิ */}
                   <div>
                     <h3 className="text-lg font-semibold text-teal-600">
                       1. ความเสื่อมแบบปฐมภูมิ (Primary)
@@ -77,7 +96,6 @@ export default function HomePage() {
                     </ul>
                   </div>
 
-                  {/* 2. ทุติยภูมิ */}
                   <div>
                     <h3 className="text-lg font-semibold text-teal-600">
                       2. ความเสื่อมแบบทุติยภูมิ (Secondary)
@@ -90,7 +108,7 @@ export default function HomePage() {
                   </div>
                 </section>
 
-                {/* ลักษณะอาการและสัญญาณเตือน */}
+                {/* ✅ ลักษณะอาการและสัญญาณเตือน */}
                 <section className="bg-white p-6 rounded-xl shadow-md space-y-4 mt-2 border border-gray-200">
                   <h2 className="text-2xl font-bold text-teal-700">
                     ลักษณะอาการและสัญญาณเตือนโรคข้อเข่าเสื่อม
@@ -110,99 +128,70 @@ export default function HomePage() {
                     <li><b>ข้อเข่าโก่งงอ ผิดรูป:</b> ขาโก่ง ต้นขาลีบ ข้อเข่าผิดรูป ทำให้เดินลำบากและปวดเวลาเคลื่อนไหว</li>
                   </ul>
                 </section>
-{/* ระยะอาการของโรค */}
-            <section className="bg-white p-6 rounded-xl shadow-md space-y-4 mt-2 border border-gray-200">
-              <h2 className="text-2xl font-bold text-teal-700">
-                ระยะอาการของโรคข้อเข่าเสื่อม
-              </h2>
 
-              <p className="text-gray-700">
-                โดยทั่วไประยะของโรคข้อเข่าเสื่อมแบ่งได้เป็น 4 ระยะ ดังนี้:
-              </p>
+                {/* ✅ ระยะอาการของโรค */}
+                <section className="bg-white p-6 rounded-xl shadow-md space-y-4 mt-2 border border-gray-200">
+                  <h2 className="text-2xl font-bold text-teal-700">
+                    ระยะอาการของโรคข้อเข่าเสื่อม
+                  </h2>
 
-              <div className="overflow-x-auto">
-                <table className="min-w-full border border-gray-300 rounded-lg overflow-hidden">
-                  <thead className="bg-teal-100">
-                    <tr>
-                      <th className="border border-gray-300 px-4 py-2 text-left">ระยะ</th>
-                      <th className="border border-gray-300 px-4 py-2 text-left">ลักษณะอาการ</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="border border-gray-300 px-4 py-2">ระยะที่ 1</td>
-                      <td className="border border-gray-300 px-4 py-2">ยังทำงานทุกอย่างได้ตามปกติ</td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="border border-gray-300 px-4 py-2">ระยะที่ 2</td>
-                      <td className="border border-gray-300 px-4 py-2">เริ่มทำงานหนักไม่ได้</td>
-                    </tr>
-                    <tr>
-                      <td className="border border-gray-300 px-4 py-2">ระยะที่ 3</td>
-                      <td className="border border-gray-300 px-4 py-2">ยังทำกิจวัตรประจำวันได้</td>
-                    </tr>
-                    <tr className="bg-gray-50">
-                      <td className="border border-gray-300 px-4 py-2">ระยะที่ 4</td>
-                      <td className="border border-gray-300 px-4 py-2">เดินไม่ไหว เคลื่อนไหวลำบาก</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+                  <p className="text-gray-700">
+                    โดยทั่วไประยะของโรคข้อเข่าเสื่อมแบ่งได้เป็น 4 ระยะ ดังนี้:
+                  </p>
 
-              <p className="text-gray-700 leading-relaxed">
-                หากอยู่ใน <span className="font-medium text-teal-600">ระยะที่ 1 หรือระยะแรก</span> 
-                ผู้ป่วยสามารถดูแลตัวเองได้ด้วยการปรับพฤติกรรม เช่น  
-                หลีกเลี่ยงท่านั่งที่กดแรงต่อข้อ (พับเพียบ คุกเข่า ขัดสมาธิ ยอง ๆ ไขว่ห้าง)  
-                ลดการขึ้นลงบันไดโดยไม่จำเป็น และหลีกเลี่ยงการยกของหนัก ๆ  
-                โดยเฉพาะในผู้ที่ทำงานยืนทั้งวัน ควรพักนั่งเป็นระยะ ๆ เพื่อชะลอการเสื่อมของข้อเข่า
-                <br /><br />
-                สำหรับผู้ป่วยที่เริ่มมีอาการเตือนตั้งแต่ระยะที่ 2-4 แนะนำให้ปรึกษาแพทย์
-                เพื่อวางแผนทำการรักษา ซึ่งจะเป็นการป้องกันข้อไม่ให้ถูกทำลายมากขึ้น 
-                และลดโอกาสเกิดข้อเข่าเสื่อมรุนแรง
-              </p>
-            </section>
+                  <div className="overflow-x-auto">
+                    <table className="min-w-full border border-gray-300 rounded-lg overflow-hidden">
+                      <thead className="bg-teal-100">
+                        <tr>
+                          <th className="border border-gray-300 px-4 py-2 text-left">ระยะ</th>
+                          <th className="border border-gray-300 px-4 py-2 text-left">ลักษณะอาการ</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr>
+                          <td className="border border-gray-300 px-4 py-2">ระยะที่ 1</td>
+                          <td className="border border-gray-300 px-4 py-2">ยังทำงานทุกอย่างได้ตามปกติ</td>
+                        </tr>
+                        <tr className="bg-gray-50">
+                          <td className="border border-gray-300 px-4 py-2">ระยะที่ 2</td>
+                          <td className="border border-gray-300 px-4 py-2">เริ่มทำงานหนักไม่ได้</td>
+                        </tr>
+                        <tr>
+                          <td className="border border-gray-300 px-4 py-2">ระยะที่ 3</td>
+                          <td className="border border-gray-300 px-4 py-2">ยังทำกิจวัตรประจำวันได้</td>
+                        </tr>
+                        <tr className="bg-gray-50">
+                          <td className="border border-gray-300 px-4 py-2">ระยะที่ 4</td>
+                          <td className="border border-gray-300 px-4 py-2">เดินไม่ไหว เคลื่อนไหวลำบาก</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
 
-            {/* แนวทางการรักษา */}
-            <section className="bg-white p-6 rounded-xl shadow-md space-y-4 mt-2 border border-gray-200">
-              <h2 className="text-2xl font-bold text-teal-700">
-                แนวทางการรักษาโรคข้อเข่าเสื่อม
-              </h2>
+                {/* ✅ แนวทางการรักษา */}
+                <section className="bg-white p-6 rounded-xl shadow-md space-y-4 mt-2 border border-gray-200">
+                  <h2 className="text-2xl font-bold text-teal-700">
+                    แนวทางการรักษาโรคข้อเข่าเสื่อม
+                  </h2>
 
-              <ul className="list-decimal list-inside text-gray-700 space-y-3">
-                <li>
-                  <b>การรักษาที่ไม่ใช้ยา (Non-pharmacological therapy):</b>
-                  ปรับเปลี่ยนพฤติกรรมการใช้ชีวิต เช่น ลดน้ำหนัก ออกกำลังกายที่เหมาะสม 
-                  ใช้ข้อเข่าอย่างถูกวิธี หลีกเลี่ยงท่าที่กดแรงเกินไป
-                </li>
-                <li>
-                  <b>กายภาพบำบัด:</b> บริหารกล้ามเนื้อ ฟื้นฟูการทำงานของข้อ 
-                  ใช้เทคนิค เช่น อัลตราซาวด์ เลเซอร์ หรืออุปกรณ์พยุงข้อ (เฝือกอ่อน ผ้ารัดเข่า) 
-                  แต่ไม่ควรใช้ต่อเนื่องนานเกินไปเพราะอาจทำให้กล้ามเนื้อลีบ
-                </li>
-                <li>
-                  <b>การใช้ยา (Pharmacological therapy):</b>
-                  อาจเป็นยารับประทานหรือฉีด เช่น ยาแก้ปวด/ลดอักเสบที่ไม่ใช่สเตียรอยด์ (NSAIDs), 
-                  ยาช่วยปรับเปลี่ยนโครงสร้างข้อ (DMOADs) ซึ่งต้องได้รับการดูแลโดยแพทย์
-                </li>
-                <li>
-                  <b>การรักษาโดยการผ่าตัด:</b> เหมาะกับผู้ป่วยที่อาการรุนแรง ไม่ตอบสนองต่อวิธีอื่น
-                  <ul className="list-inside ml-6 space-y-1">
-                    <li><b>Arthrodesis:</b> ผ่าตัดเชื่อมข้อให้ผิวข้อเข้ามาชิดกัน</li>
-                    <li><b>Arthroplasty:</b> การผ่าตัดเปลี่ยนข้อเข่าเทียม</li>
-                    <li><b>Osteotomy:</b> การตัดเปลี่ยนแนวกระดูกเพื่อปรับสมดุลแรงกด</li>
+                  <ul className="list-decimal list-inside text-gray-700 space-y-3">
+                    <li>
+                      <b>การรักษาที่ไม่ใช้ยา:</b> ปรับพฤติกรรม เช่น ลดน้ำหนัก ออกกำลังกายที่เหมาะสม
+                    </li>
+                    <li>
+                      <b>กายภาพบำบัด:</b> บริหารกล้ามเนื้อ ฟื้นฟูการทำงานของข้อ 
+                      ใช้เทคนิค เช่น อัลตราซาวด์ เลเซอร์ หรืออุปกรณ์พยุงข้อ
+                    </li>
+                    <li>
+                      <b>การใช้ยา:</b> ยาแก้ปวด/ลดอักเสบ ภายใต้การดูแลของแพทย์
+                    </li>
+                    <li>
+                      <b>การรักษาโดยการผ่าตัด:</b> สำหรับผู้ป่วยอาการรุนแรง เช่น เปลี่ยนข้อเข่าเทียม
+                    </li>
                   </ul>
-                </li>
-              </ul>
+                </section>
 
-              <p className="text-gray-700 leading-relaxed">
-                แม้โรคข้อเข่าเสื่อมมักเกิดขึ้นเมื่ออายุมากขึ้น 
-                แต่สามารถ<strong className="text-teal-600">ชะลอการเสื่อมและรักษาได้หลายวิธี</strong> 
-                หากเริ่มมีอาการปวดหรือลำบากในการใช้ชีวิต 
-                ควรรีบปรึกษาแพทย์เพื่อหาสาเหตุที่แท้จริง 
-                และเลือกวิธีรักษาที่เหมาะสม จะช่วยลดความรุนแรงของโรค 
-                และทำให้คุณภาพชีวิตดีขึ้น
-              </p>
-            </section>
                 {/* ✅ แหล่งอ้างอิง */}
                 <div className="mt-8 p-4 sm:p-5 bg-white border border-teal-200 rounded-xl shadow-sm text-center">
                   <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
@@ -214,7 +203,7 @@ export default function HomePage() {
                       rel="noopener noreferrer"
                       className="text-teal-700 underline hover:text-teal-900 break-words"
                     >
-                      โรงพยาบาลพญาไท – รู้จักโรคข้อเข่าเสื่อม อาการ สาเหตุ พร้อมแนวทางการรักษาอย่างถูกวิธี
+                      โรงพยาบาลพญาไท
                     </a>
                   </p>
                 </div>
@@ -223,52 +212,46 @@ export default function HomePage() {
           </main>
         </div>
 
-        {/* สำหรับ desktop */}
-  {/* สำหรับ Desktop */}
-{/* สำหรับ Desktop */}
-<div className="hidden md:flex flex-col justify-center items-center gap-8 md:gap-10">
-  {[
-    '/images/knee-left.png',
-    '/images/knee-right.png',
-    '/images/knee-top.png',
-    '/images/knee-bottom.png'
-  ].map((src, i) => (
-    <Image
-      key={i}
-      src={src}
-      alt={`ตกแต่ง ${i}`}
-      width={260}
-      height={260}
-      className="rounded-3xl shadow-xl opacity-95 select-none pointer-events-none hover:scale-105 transition-transform duration-500"
-      style={{ filter: 'brightness(1.08) contrast(1.1)' }}
-    />
-  ))}
-</div>
+        {/* ✅ ฝั่งขวา (Desktop Images) */}
+        <div className="hidden md:flex flex-col justify-center items-center gap-8 md:gap-10">
+          {imageList.map((src, i) => (
+            <Image
+              key={i}
+              src={src}
+              alt={`ตกแต่ง ${i}`}
+              width={260}
+              height={260}
+              loading="lazy"
+              decoding="async"
+              fetchPriority={i === 0 ? 'high' : 'low'}
+              className="rounded-3xl shadow-xl opacity-95 select-none pointer-events-none hover:scale-105 transition-transform duration-500"
+              style={{ filter: 'brightness(1.08) contrast(1.1)' }}
+            />
+          ))}
+        </div>
 
-{/* สำหรับ Mobile */}
-<div className="flex md:hidden flex-wrap justify-center items-center gap-3 mt-6 px-3">
-  {[
-    '/images/knee-left.png',
-    '/images/knee-right.png',
-    '/images/knee-top.png',
-    '/images/knee-bottom.png'
-  ].map((src, i) => (
-    <div
-      key={i}
-      className="flex-1 min-w-[45%] max-w-[45%] sm:min-w-[40%] sm:max-w-[40%] flex justify-center"
-    >
-      <Image
-        src={src}
-        alt={`ตกแต่งมือถือ ${i}`}
-        width={200}
-        height={200}
-        className="w-full h-auto rounded-2xl shadow-md opacity-95 select-none pointer-events-none"
-        style={{ filter: 'brightness(1.08) contrast(1.1)' }}
-      />
-    </div>
-  ))}
-</div>
+        {/* ✅ ฝั่งขวา (Mobile Images) */}
+        <div className="flex md:hidden flex-wrap justify-center items-center gap-3 mt-6 px-3">
+          {imageList.map((src, i) => (
+            <div
+              key={i}
+              className="flex-1 min-w-[45%] max-w-[45%] sm:min-w-[40%] sm:max-w-[40%] flex justify-center"
+            >
+              <Image
+                src={src}
+                alt={`ตกแต่งมือถือ ${i}`}
+                width={200}
+                height={200}
+                loading="lazy"
+                decoding="async"
+                fetchPriority={i === 0 ? 'high' : 'low'}
+                className="w-full h-auto rounded-2xl shadow-md opacity-95 select-none pointer-events-none"
+                style={{ filter: 'brightness(1.08) contrast(1.1)' }}
+              />
+            </div>
+          ))}
         </div>
       </div>
+    </div>
   )
 }

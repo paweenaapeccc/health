@@ -44,10 +44,10 @@ export default function LeafletMap({ elderlyList = [] }) {
   useEffect(() => {
     const map = mapRef.current
     if (!map) return
-    setTimeout(() => map.invalidateSize(), 300)
-    const onResize = () => map.invalidateSize()
-    window.addEventListener('resize', onResize)
-    return () => window.removeEventListener('resize', onResize)
+    const handleResize = () => map.invalidateSize()
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
   }, [])
 
   // ✅ ดึงเส้นทางจาก API
@@ -69,28 +69,22 @@ export default function LeafletMap({ elderlyList = [] }) {
       })
       const data = await res.json()
       const route = data?.routes?.[0]
-      if (route?.geometry) {
-        const decoded = polyline.decode(route.geometry)
-        setRouteCoords(decoded)
-        setRouteVisible(true)
-        setDistance((route.summary.distance / 1000).toFixed(2))
-        setDuration((route.summary.duration / 60).toFixed(1))
+      if (!route?.geometry) return alert('❌ ไม่พบเส้นทางจาก OpenRouteService')
 
-        const map = mapRef.current
-        if (map) {
-          setTimeout(() => {
-            map.fitBounds(decoded, { padding: [40, 40] })
-            map.invalidateSize()
-          }, 100)
-        }
+      const decoded = polyline.decode(route.geometry)
+      setRouteCoords(decoded)
+      setRouteVisible(true)
+      setDistance((route.summary.distance / 1000).toFixed(2))
+      setDuration((route.summary.duration / 60).toFixed(1))
 
-        // ✅ เปิด popup ทันที
-        if (markerRef?.current) markerRef.current.openPopup()
-      } else {
-        alert('❌ ไม่พบเส้นทางจาก OpenRouteService')
+      const map = mapRef.current
+      if (map) {
+        map.fitBounds(decoded, { padding: [40, 40] })
+        map.invalidateSize()
       }
-    } catch (e) {
-      console.error(e)
+      markerRef?.openPopup()
+    } catch (err) {
+      console.error(err)
       alert('เกิดข้อผิดพลาดในการดึงเส้นทาง')
     }
   }
@@ -111,7 +105,7 @@ export default function LeafletMap({ elderlyList = [] }) {
           className="h-full w-full z-0"
           whenCreated={(map) => {
             mapRef.current = map
-            setTimeout(() => map.invalidateSize(), 300)
+            setTimeout(() => map.invalidateSize(), 200)
           }}
         >
           <TileLayer
@@ -126,54 +120,59 @@ export default function LeafletMap({ elderlyList = [] }) {
 
           {/* ✅ Marker ผู้สูงอายุ */}
           {Array.isArray(elderlyList) &&
-            elderlyList.map((e) => {
-              if (!e?.latlong) return null
-              const [lat, lng] = e.latlong.split(',').map(Number)
-              if (isNaN(lat) || isNaN(lng)) return null
-              const markerRef = useRef(null)
+            elderlyList
+              .filter((e) => e?.latlong)
+              .map((e) => {
+                const [lat, lng] = e.latlong.split(',').map(Number)
+                if (isNaN(lat) || isNaN(lng)) return null
 
-              return (
-                <Marker key={e.id} position={[lat, lng]} ref={markerRef}>
-                  <Popup>
-                    <div className="space-y-2">
-                      <p>
-                        <b>ชื่อ:</b> {e.name}<br />
-                        <b>อายุ:</b> {e.age} ปี<br />
-                        <b>เพศ:</b> {e.gender}<br />
-                        <b>ที่อยู่:</b> {e.address}
-                      </p>
+                let localMarker = null // ✅ ไม่ใช้ useRef ใน loop
 
-                      <p className="mt-2 font-semibold bg-gray-100 border border-gray-300 rounded-lg px-3 py-1">
-                        {e.assessment_result
-                          ? <>🩺 ผลการประเมิน: {e.assessment_result}</>
-                          : <>⚠️ ยังไม่ได้ทำแบบประเมิน</>}
-                      </p>
+                return (
+                  <Marker
+                    key={e.id || e.name}
+                    position={[lat, lng]}
+                    ref={(ref) => (localMarker = ref)}
+                  >
+                    <Popup>
+                      <div className="space-y-2">
+                        <p>
+                          <b>ชื่อ:</b> {e.name}<br />
+                          <b>อายุ:</b> {e.age} ปี<br />
+                          <b>เพศ:</b> {e.gender}<br />
+                          <b>ที่อยู่:</b> {e.address}
+                        </p>
 
-                      <button
-                        onClick={() => fetchRoute([lat, lng], HOSPITAL_LATLNG, markerRef)}
-                        className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md"
-                      >
-                        🚗 เส้นทางไปโรงพยาบาลกระสัง
-                      </button>
+                        <p className="mt-2 font-semibold bg-gray-100 border border-gray-300 rounded-lg px-3 py-1">
+                          {e.assessment_result
+                            ? <>🩺 ผลการประเมิน: {e.assessment_result}</>
+                            : <>⚠️ ยังไม่ได้ทำแบบประเมิน</>}
+                        </p>
 
-                      <button
-                        onClick={() => {
-                          // ✅ เปิด popup ก่อนเปิด Google Maps
-                          if (markerRef.current) markerRef.current.openPopup()
-                          window.open(
-                            `https://www.google.com/maps/dir/?api=1&origin=${lat},${lng}&destination=${HOSPITAL_LATLNG[0]},${HOSPITAL_LATLNG[1]}&travelmode=driving`,
-                            '_blank'
-                          )
-                        }}
-                        className="mt-2 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md"
-                      >
-                        🧭 เปิดนำทางใน Google Maps
-                      </button>
-                    </div>
-                  </Popup>
-                </Marker>
-              )
-            })}
+                        <button
+                          onClick={() => fetchRoute([lat, lng], HOSPITAL_LATLNG, localMarker)}
+                          className="mt-2 w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md"
+                        >
+                          🚗 เส้นทางไปโรงพยาบาลกระสัง
+                        </button>
+
+                        <button
+                          onClick={() => {
+                            localMarker?.openPopup()
+                            window.open(
+                              `https://www.google.com/maps/dir/?api=1&origin=${lat},${lng}&destination=${HOSPITAL_LATLNG[0]},${HOSPITAL_LATLNG[1]}&travelmode=driving`,
+                              '_blank'
+                            )
+                          }}
+                          className="mt-2 w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-3 rounded-lg shadow-md"
+                        >
+                          🧭 เปิดนำทางใน Google Maps
+                        </button>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )
+              })}
 
           {routeCoords.length > 0 && (
             <Polyline positions={routeCoords} color="deepskyblue" weight={6} />
@@ -195,7 +194,9 @@ export default function LeafletMap({ elderlyList = [] }) {
 function MapButton({ onClear }) {
   const map = useMap()
   useEffect(() => {
+    if (!map) return
     map.invalidateSize()
+    return () => {} // ✅ cleanup
   }, [map])
   return (
     <div
@@ -218,7 +219,9 @@ function MapButton({ onClear }) {
 function MapInfo({ distance, duration }) {
   const map = useMap()
   useEffect(() => {
+    if (!map) return
     map.invalidateSize()
+    return () => {} // ✅ cleanup
   }, [map])
   return (
     <div

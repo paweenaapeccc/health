@@ -1,31 +1,45 @@
-import { connectDB } from '@/lib/db' 
+import { connectDB } from '@/lib/db'
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { jwtVerify } from 'jose'
 
 /* ==========================================================
    ✅ GET /api/elderly
-   ดึงรายชื่อผู้สูงอายุทั้งหมด (ใช้ในหน้ารายการ + แผนที่)
+   ดึงรายชื่อผู้สูงอายุทั้งหมด (รองรับค้นหา + แบ่งหน้า)
 ========================================================== */
 export async function GET(req) {
   try {
     const db = await connectDB()
     const url = new URL(req.url)
+
     const search = (url.searchParams.get('search') || '').trim()
+    const page = parseInt(url.searchParams.get('page') || '1', 10)
+    const pageSize = parseInt(url.searchParams.get('pageSize') || '10', 10)
+    const offset = (page - 1) * pageSize
 
     const where = []
     const params = []
+
+    // ✅ ตัวกรองคำค้นหา
     if (search) {
       const kw = `%${search}%`
       where.push(`(
-        name LIKE ? OR phonNumber LIKE ? OR citizenID LIKE ? OR
-        address LIKE ? OR subdistrict LIKE ? OR district LIKE ? OR province LIKE ?
+        e.name LIKE ? OR e.phonNumber LIKE ? OR e.citizenID LIKE ? OR
+        e.address LIKE ? OR e.subdistrict LIKE ? OR e.district LIKE ? OR e.province LIKE ?
       )`)
       params.push(kw, kw, kw, kw, kw, kw, kw)
     }
+
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : ''
 
-    // ✅ ดึงข้อมูลผู้สูงอายุ + ผลการประเมินล่าสุด
+    // ✅ ดึงจำนวนรวมทั้งหมด
+    const [countRows] = await db.execute(
+      `SELECT COUNT(*) AS total FROM elderly e ${whereSql}`,
+      params
+    )
+    const total = countRows[0].total
+
+    // ✅ ดึงข้อมูลตามหน้า (LIMIT + OFFSET)
     const [rows] = await db.execute(
       `
       SELECT
@@ -59,11 +73,12 @@ export async function GET(req) {
       ) ar ON e.elderlyID = ar.elderlyID
       ${whereSql}
       ORDER BY e.elderlyID DESC
+      LIMIT ? OFFSET ?
       `,
-      params
+      [...params, pageSize, offset]
     )
 
-    // ✅ คำนวณอายุ
+    // ✅ ฟังก์ชันคำนวณอายุ
     const calcAge = (birthDate) => {
       if (!birthDate) return '-'
       const birth = new Date(birthDate)
@@ -80,10 +95,13 @@ export async function GET(req) {
       age: calcAge(r.birthDate),
     }))
 
-    return NextResponse.json({ ok: true, data })
+    return NextResponse.json({ ok: true, data, total })
   } catch (err) {
     console.error('GET /api/elderly error:', err)
-    return NextResponse.json({ error: 'ไม่สามารถโหลดข้อมูลได้' }, { status: 500 })
+    return NextResponse.json(
+      { error: 'ไม่สามารถโหลดข้อมูลได้' },
+      { status: 500 }
+    )
   }
 }
 
