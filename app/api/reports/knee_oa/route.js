@@ -11,7 +11,6 @@ const AGE_BANDS = [
 
 export async function GET(req) {
   try {
-    // ✅ ตรวจสอบ token (เพื่อป้องกันการเข้าถึงโดยไม่ได้ login)
     const token = (await cookies()).get("token")?.value;
     if (!token)
       return NextResponse.json({ error: "กรุณาเข้าสู่ระบบ" }, { status: 401 });
@@ -23,14 +22,12 @@ export async function GET(req) {
       return NextResponse.json({ error: "เซสชันไม่ถูกต้อง" }, { status: 401 });
     }
 
-    // ✅ อ่านค่าพารามิเตอร์ช่วงเวลา (optional)
     const { searchParams } = new URL(req.url);
     const start = searchParams.get("start") || "1900-01-01";
     const end = searchParams.get("end") || "2100-12-31";
 
     const db = await connectDB();
 
-    // ✅ ดึงข้อมูลผู้สูงอายุ + ผลประเมินล่าสุด (เฉพาะในช่วงที่เลือก)
     const [rows] = await db.query(
       `
       SELECT 
@@ -59,7 +56,6 @@ export async function GET(req) {
       [start, end]
     );
 
-    // ✅ สร้างโครงสร้างเริ่มต้นสำหรับเพศและช่วงอายุ
     const base = { male: {}, female: {} };
     AGE_BANDS.forEach((b) => {
       base.male[b.key] = 0;
@@ -69,7 +65,6 @@ export async function GET(req) {
     const totals = Object.fromEntries(AGE_BANDS.map((b) => [b.key, 0]));
     let grand = 0;
 
-    // ✅ ฟังก์ชันหาช่วงอายุ
     const getBand = (age) => {
       for (const b of AGE_BANDS)
         if (age >= b.min && age <= b.max) return b.key;
@@ -78,18 +73,20 @@ export async function GET(req) {
 
     // ✅ ประมวลผลข้อมูล
     const resultData = rows.map((r) => {
-      // ใช้เฉพาะ male / female เท่านั้น
       const g = r.gender === "male" ? "male" : "female";
       const band = getBand(Number(r.age));
 
-      // ✅ ระบุระดับความเสี่ยง
+      // ✅ แก้เฉพาะส่วนนี้
+      const yes = Number(r.yesCount ?? 0);
+
       const riskGroup = !r.assessmentDate
         ? "ยังไม่ประเมิน"
-        : r.yesCount >= 3 || (r.resultText || "").includes("เข่าเสื่อม")
+        : yes >= 4
         ? "เสี่ยงสูง"
-        : "ไม่เสี่ยง";
+        : yes >= 2
+        ? "เสี่ยงปานกลาง"
+        : "เสี่ยงน้อย";
 
-      // ✅ รวมจำนวนในกลุ่ม
       base[g][band] += 1;
       totals[band] += 1;
       grand += 1;
@@ -100,13 +97,13 @@ export async function GET(req) {
         citizenID: r.citizenID,
         gender: r.gender,
         age: r.age,
+        yesCount: yes,
         riskGroup,
         resultText: r.resultText || "-",
         assessmentDate: r.assessmentDate || "-",
       };
     });
 
-    // ✅ ส่งข้อมูลกลับให้ frontend
     return NextResponse.json({
       bands: AGE_BANDS.map((b) => b.key),
       byGender: base,

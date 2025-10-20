@@ -43,6 +43,33 @@ const genderLabel = (g) =>
   g === "male" ? "ชาย" : g === "female" ? "หญิง" : "";
 
 /* ------------------------------------------------------------
+   ✅ ฟังก์ชันแบ่งกลุ่มความเสี่ยง (ใหม่)
+------------------------------------------------------------ */
+const riskLabel = (count) => {
+  if (count >= 4) return "เสี่ยงสูง";
+  if (count >= 2) return "เสี่ยงปานกลาง";
+  return "เสี่ยงน้อย";
+};
+
+/* ------------------------------------------------------------
+   ✅ สีของกลุ่มความเสี่ยง
+------------------------------------------------------------ */
+const riskColor = (risk) => {
+  switch (risk) {
+    case "เสี่ยงสูง":
+      return "text-red-600 font-semibold";
+    case "เสี่ยงปานกลาง":
+      return "text-yellow-600 font-semibold";
+    case "เสี่ยงน้อย":
+      return "text-green-600 font-semibold";
+    case "ยังไม่ประเมิน":
+      return "text-gray-500";
+    default:
+      return "";
+  }
+};
+
+/* ------------------------------------------------------------
    ✅ หน้าเพจรายงานภาวะข้อเข่าเสื่อม
 ------------------------------------------------------------ */
 export default function KneeOAReportPage() {
@@ -86,7 +113,7 @@ export default function KneeOAReportPage() {
   }, []);
 
   /* ------------------------------------------------------------
-     ✅ เตรียมข้อมูลสำหรับกราฟ (เรียก useMemo ทุกครั้ง)
+     ✅ เตรียมข้อมูลกราฟ
   ------------------------------------------------------------ */
   const barData = useMemo(() => {
     if (!data) return [];
@@ -105,108 +132,11 @@ export default function KneeOAReportPage() {
     }));
   }, [data]);
 
-  /* ------------------------------------------------------------
-     ✅ สีของกราฟ
-  ------------------------------------------------------------ */
   const COLOR_BY_GENDER = { male: "#4F46E5", female: "#EC4899" };
   const PIE_COLORS = ["#4F46E5", "#EC4899"];
 
-  const riskColor = (risk) => {
-    switch (risk) {
-      case "เสี่ยงสูง":
-        return "text-red-600 font-semibold";
-      case "ไม่เสี่ยง":
-        return "text-green-600 font-semibold";
-      case "ยังไม่ประเมิน":
-        return "text-gray-500";
-      default:
-        return "";
-    }
-  };
-
-
   /* ------------------------------------------------------------
-     ✅ ฟังก์ชันดาวน์โหลด CSV — จัดรูปแบบตารางให้อ่านง่ายขึ้น
-  ------------------------------------------------------------ */
-  const downloadCSV = () => {
-    if (!data) return;
-
-    const lines = [];
-
-    /* ---------- ส่วนหัวรายงาน ---------- */
-    lines.push("รายงานภาวะข้อเข่าเสื่อม แยกตามเพศและช่วงอายุ");
-    lines.push(`วันที่ออกรายงาน: ${toThaiDate(new Date())}`);
-    lines.push(""); // เว้นบรรทัด
-
-    /* ---------- ส่วนที่ 1: ตารางสรุป ---------- */
-    const headers = ["เพศ", ...data.bands, "รวม"];
-    lines.push(headers.join(","));
-    lines.push("----------------------------------------------------------");
-
-    Object.keys(data.byGender).forEach((g) => {
-      const row = [
-        genderLabel(g),
-        ...data.bands.map((b) => data.byGender[g][b] || 0),
-        Object.values(data.byGender[g]).reduce((a, b) => a + b, 0),
-      ];
-      lines.push(row.join(","));
-    });
-
-    lines.push(
-      ["รวม", ...data.bands.map((b) => data.totals[b]), data.grandTotal].join(",")
-    );
-
-    lines.push("----------------------------------------------------------");
-    lines.push("");
-    lines.push("");
-    lines.push("รายชื่อผู้สูงอายุและระดับความเสี่ยง");
-
-    /* ---------- ส่วนที่ 2: รายชื่อผู้สูงอายุ ---------- */
-    const detailHeaders = [
-      "เลขบัตรประชาชน",
-      "ชื่อ-สกุล",
-      "เพศ",
-      "อายุ (ปี)",
-      "กลุ่มความเสี่ยง",
-      "ผลการประเมินล่าสุด",
-      "วันที่ประเมิน",
-    ];
-    lines.push(detailHeaders.join(","));
-    lines.push("----------------------------------------------------------");
-
-    data.list?.forEach((p, i) => {
-      const row = [
-        `="${p.citizenID}"`,
-        p.name,
-        genderLabel(p.gender),
-        p.age,
-        p.riskGroup || "-",
-        p.resultText || "-",
-        toThaiDate(p.assessmentDate),
-      ];
-      lines.push(row.join(","));
-    });
-
-    lines.push("----------------------------------------------------------");
-    lines.push(`รวมทั้งหมด ${data.list?.length || 0} รายชื่อ`);
-
-    /* ---------- สร้างไฟล์ CSV ---------- */
-    const blob = new Blob([`\ufeff${lines.join("\n")}`], {
-      type: "text/csv;charset=utf-8;",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `รายงานภาวะข้อเข่าเสื่อม-${new Date()
-      .toISOString()
-      .slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
-
-
-  /* ------------------------------------------------------------
-     ✅ เริ่ม Render UI (หลัง useMemo ทั้งหมด)
+     ✅ Render UI
   ------------------------------------------------------------ */
   if (!mounted) return null;
 
@@ -246,13 +176,6 @@ export default function KneeOAReportPage() {
                 className="px-4 py-2 rounded bg-blue-600 text-white shadow hover:bg-blue-700 transition"
               >
                 ค้นหา
-              </button>
-              <button
-                onClick={downloadCSV}
-                disabled={!data}
-                className="px-4 py-2 rounded border bg-gray-50 hover:bg-gray-100 transition"
-              >
-                ดาวน์โหลด CSV
               </button>
             </div>
           </div>
@@ -335,7 +258,16 @@ export default function KneeOAReportPage() {
                         <td className="p-2 border">{p.name}</td>
                         <td className="p-2 border">{genderLabel(p.gender)}</td>
                         <td className="p-2 border text-right">{p.age}</td>
-                        <td className={`p-2 border ${riskColor(p.riskGroup)}`}>{p.riskGroup}</td>
+
+                        {/* ✅ ใช้ yesCount แทน risk_count */}
+                        <td
+                          className={`p-2 border ${riskColor(
+                            riskLabel(p.yesCount)
+                          )}`}
+                        >
+                          {riskLabel(p.yesCount)}
+                        </td>
+
                         <td className="p-2 border">{p.resultText}</td>
                         <td className="p-2 border">{toThaiDate(p.assessmentDate)}</td>
                       </tr>
