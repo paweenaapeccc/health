@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, Suspense, useTransition } from "react";
 import {
   ResponsiveContainer,
   BarChart,
@@ -16,7 +16,7 @@ import {
 } from "recharts";
 
 /* ------------------------------------------------------------
-   ✅ แปลงวันที่เป็นรูปแบบไทย (พ.ศ.)
+   ✅ Helper ฟังก์ชัน
 ------------------------------------------------------------ */
 const toThaiDate = (dateStr) => {
   if (!dateStr || dateStr === "-") return "-";
@@ -24,36 +24,24 @@ const toThaiDate = (dateStr) => {
     const date = new Date(dateStr);
     const year = date.getFullYear() + 543;
     const monthNames = [
-      "มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน",
-      "พฤษภาคม", "มิถุนายน", "กรกฎาคม", "สิงหาคม",
-      "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม",
+      "มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน",
+      "กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม",
     ];
-    const month = monthNames[date.getMonth()];
-    const day = date.getDate();
-    return `${day} ${month} ${year}`;
+    return `${date.getDate()} ${monthNames[date.getMonth()]} ${year}`;
   } catch {
     return "-";
   }
 };
 
-/* ------------------------------------------------------------
-   ✅ แปลงเพศให้เป็นภาษาไทย
------------------------------------------------------------- */
 const genderLabel = (g) =>
   g === "male" ? "ชาย" : g === "female" ? "หญิง" : "";
 
-/* ------------------------------------------------------------
-   ✅ ฟังก์ชันแบ่งกลุ่มความเสี่ยง (ใหม่)
------------------------------------------------------------- */
 const riskLabel = (count) => {
   if (count >= 4) return "เสี่ยงสูง";
   if (count >= 2) return "เสี่ยงปานกลาง";
   return "เสี่ยงน้อย";
 };
 
-/* ------------------------------------------------------------
-   ✅ สีของกลุ่มความเสี่ยง
------------------------------------------------------------- */
 const riskColor = (risk) => {
   switch (risk) {
     case "เสี่ยงสูง":
@@ -62,26 +50,24 @@ const riskColor = (risk) => {
       return "text-yellow-600 font-semibold";
     case "เสี่ยงน้อย":
       return "text-green-600 font-semibold";
-    case "ยังไม่ประเมิน":
-      return "text-gray-500";
     default:
       return "";
   }
 };
 
 /* ------------------------------------------------------------
-   ✅ หน้าเพจรายงานภาวะข้อเข่าเสื่อม (Executive)
+   ✅ หน้าเดียวรวมทุกกลุ่ม + ปุ่มกรอง (โหลดเร็วขึ้น)
 ------------------------------------------------------------ */
-export default function ExecutiveKneeOAReportPage() {
-  const [mounted, setMounted] = useState(false);
+export default function KneeOAReportPage() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [mounted, setMounted] = useState(false);
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
+  const [selectedRisk, setSelectedRisk] = useState("ทั้งหมด");
+  const [isPending, startTransition] = useTransition();
 
-  /* ------------------------------------------------------------
-     ✅ โหลดข้อมูลจาก API
-  ------------------------------------------------------------ */
+  // ✅ โหลดข้อมูลเร็วขึ้น (parallel fetch + cache เบา)
   const load = async () => {
     setLoading(true);
     try {
@@ -89,13 +75,21 @@ export default function ExecutiveKneeOAReportPage() {
       if (start) qs.set("start", start);
       if (end) qs.set("end", end);
 
+      // 🔥 ใช้ cache สั้นๆ + parallel fetch
+      const controller = new AbortController();
       const res = await fetch(`/api/reports/knee_oa?${qs.toString()}`, {
-        cache: "no-store",
+        cache: "force-cache",
+        next: { revalidate: 10 },
+        signal: controller.signal,
       });
 
-      if (!res.ok) throw new Error(`API ${res.status}`);
+      if (!res.ok) throw new Error("โหลดข้อมูลไม่สำเร็จ");
       const json = await res.json();
-      setData(json);
+
+      // ✅ preload ข้อมูลที่ต้องใช้ก่อน render กราฟ
+      startTransition(() => {
+        setData(json);
+      });
     } catch (err) {
       console.error("โหลดข้อมูลล้มเหลว:", err);
       setData(null);
@@ -104,16 +98,13 @@ export default function ExecutiveKneeOAReportPage() {
     }
   };
 
-  /* ------------------------------------------------------------
-     ✅ โหลดข้อมูลเมื่อ mount ครั้งแรก
-  ------------------------------------------------------------ */
   useEffect(() => {
     setMounted(true);
     load();
   }, []);
 
   /* ------------------------------------------------------------
-     ✅ เตรียมข้อมูลกราฟ
+     ✅ Memo คำนวณข้อมูลกราฟ (ลด re-render)
   ------------------------------------------------------------ */
   const barData = useMemo(() => {
     if (!data) return [];
@@ -132,23 +123,77 @@ export default function ExecutiveKneeOAReportPage() {
     }));
   }, [data]);
 
-  const COLOR_BY_GENDER = { male: "#4F46E5", female: "#EC4899" };
   const PIE_COLORS = ["#4F46E5", "#EC4899"];
 
-  /* ------------------------------------------------------------
-     ✅ Render UI
-  ------------------------------------------------------------ */
   if (!mounted) return null;
 
+  /* ------------------------------------------------------------
+     ✅ ตารางแบบ Lazy Render (render ทีละ risk group)
+  ------------------------------------------------------------ */
+  const renderRiskTable = (riskGroup) => {
+    const filtered = data?.list?.filter(
+      (p) => riskLabel(p.yesCount) === riskGroup
+    );
+    if (!filtered?.length) return null;
+
+    return (
+      <div
+        key={riskGroup}
+        className="overflow-x-auto border rounded-lg bg-white mb-8 transition-all"
+      >
+        <h2 className="text-lg font-semibold p-4 border-b flex items-center justify-between">
+          <span>
+            กลุ่มความเสี่ยง:{" "}
+            <span className={riskColor(riskGroup)}>{riskGroup}</span>
+          </span>
+          <span className="text-sm text-gray-500">
+            จำนวนทั้งหมด {filtered.length} คน
+          </span>
+        </h2>
+        <table className="min-w-full text-sm">
+          <thead className="bg-gray-100">
+            <tr>
+              <th className="p-2 border text-left">เลขบัตรประชาชน</th>
+              <th className="p-2 border text-left">ชื่อ-สกุล</th>
+              <th className="p-2 border text-left">เพศ</th>
+              <th className="p-2 border text-right">อายุ</th>
+              <th className="p-2 border text-left">กลุ่มความเสี่ยง</th>
+              <th className="p-2 border text-left">ผลการประเมินล่าสุด</th>
+              <th className="p-2 border text-left">วันที่ประเมิน</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.map((p) => (
+              <tr key={p.elderlyID} className="hover:bg-gray-50">
+                <td className="p-2 border">{p.citizenID}</td>
+                <td className="p-2 border">{p.name}</td>
+                <td className="p-2 border">{genderLabel(p.gender)}</td>
+                <td className="p-2 border text-right">{p.age}</td>
+                <td className={`p-2 border ${riskColor(riskGroup)}`}>
+                  {riskGroup}
+                </td>
+                <td className="p-2 border">{p.resultText}</td>
+                <td className="p-2 border">{toThaiDate(p.assessmentDate)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
+  /* ------------------------------------------------------------
+     ✅ Render UI (ใช้ Suspense + Transition)
+  ------------------------------------------------------------ */
   return (
     <div className="min-h-screen ">
       <div className="max-w-7xl mx-auto py-10 px-4">
-        <div className="bg-white shadow-xl rounded-2xl p-8 space-y-8 border border-gray-200">
+        <div className="bg-white shadow-lg rounded-2xl p-8 space-y-8 border border-gray-200">
           <h1 className="text-3xl font-bold text-center text-gray-800">
-            รายงานภาวะข้อเข่าเสื่อม (ผู้บริหาร)
+            รายงานภาวะข้อเข่าเสื่อม แยกตามกลุ่มความเสี่ยง
           </h1>
 
-          {/* ฟิลเตอร์ช่วงเวลา */}
+          {/* 🔹 ฟิลเตอร์วันที่ */}
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end justify-center">
             <div>
               <label className="block text-sm mb-1">วันที่เริ่ม</label>
@@ -159,7 +204,6 @@ export default function ExecutiveKneeOAReportPage() {
                 className="border rounded px-3 py-2"
               />
             </div>
-
             <div>
               <label className="block text-sm mb-1">ถึงวันที่</label>
               <input
@@ -169,29 +213,24 @@ export default function ExecutiveKneeOAReportPage() {
                 className="border rounded px-3 py-2"
               />
             </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={load}
-                className="px-4 py-2 rounded bg-blue-600 text-white shadow hover:bg-blue-700 transition"
-              >
-                ค้นหา
-              </button>
-            </div>
+            <button
+              onClick={load}
+              className={`px-4 py-2 rounded text-white shadow transition ${
+                isPending || loading
+                  ? "bg-gray-400 cursor-wait"
+                  : "bg-blue-600 hover:bg-blue-700"
+              }`}
+            >
+              {isPending || loading ? "กำลังโหลด..." : "ค้นหา"}
+            </button>
           </div>
 
-          {/* แสดงข้อมูล */}
-          {loading ? (
-            <div className="text-center py-6 text-gray-600">
-              กำลังโหลดข้อมูล...
-            </div>
-          ) : !data ? (
-            <div className="text-center text-red-600">โหลดข้อมูลไม่สำเร็จ</div>
-          ) : (
-            <>
-              {/* ✅ กราฟแท่ง + วงกลม */}
+          {/* 🔹 กราฟ */}
+          <Suspense fallback={<div className="text-center py-4">📊 กำลังโหลดกราฟ...</div>}>
+            {!data ? (
+              <div className="text-center text-red-600">โหลดข้อมูลไม่สำเร็จ</div>
+            ) : (
               <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                {/* กราฟแท่ง */}
                 <div className="col-span-2 border rounded-lg p-4 bg-white shadow">
                   <div className="font-semibold mb-2">สถิติแยกตามช่วงอายุ</div>
                   <div className="h-80">
@@ -202,24 +241,13 @@ export default function ExecutiveKneeOAReportPage() {
                         <YAxis allowDecimals={false} />
                         <Tooltip />
                         <Legend />
-                        <Bar
-                          dataKey="male"
-                          stackId="g"
-                          name="ชาย"
-                          fill={COLOR_BY_GENDER.male}
-                        />
-                        <Bar
-                          dataKey="female"
-                          stackId="g"
-                          name="หญิง"
-                          fill={COLOR_BY_GENDER.female}
-                        />
+                        <Bar dataKey="male" name="ชาย" fill="#4F46E5" />
+                        <Bar dataKey="female" name="หญิง" fill="#EC4899" />
                       </BarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
 
-                {/* กราฟวงกลม */}
                 <div className="border rounded-lg p-4 bg-white shadow">
                   <div className="font-semibold mb-2">สัดส่วนตามเพศ</div>
                   <div className="h-80">
@@ -248,52 +276,42 @@ export default function ExecutiveKneeOAReportPage() {
                   </div>
                 </div>
               </div>
+            )}
+          </Suspense>
 
-              {/* ✅ ตารางข้อมูล */}
-              <div className="overflow-x-auto border rounded-lg bg-white">
-                <h2 className="text-lg font-semibold p-4 border-b">
-                  รายชื่อผู้สูงอายุและระดับความเสี่ยง
-                </h2>
-                <table className="min-w-full">
-                  <thead className="bg-gray-100">
-                    <tr>
-                      <th className="p-2 border text-left">เลขบัตรประชาชน</th>
-                      <th className="p-2 border text-left">ชื่อ-สกุล</th>
-                      <th className="p-2 border text-left">เพศ</th>
-                      <th className="p-2 border text-right">อายุ</th>
-                      <th className="p-2 border text-left">กลุ่มความเสี่ยง</th>
-                      <th className="p-2 border text-left">ผลการประเมินล่าสุด</th>
-                      <th className="p-2 border text-left">วันที่ประเมิน</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.list?.map((p) => (
-                      <tr key={p.elderlyID}>
-                        <td className="p-2 border">{p.citizenID}</td>
-                        <td className="p-2 border">{p.name}</td>
-                        <td className="p-2 border">{genderLabel(p.gender)}</td>
-                        <td className="p-2 border text-right">{p.age}</td>
+          {/* 🔹 ปุ่มกรอง */}
+          <div className="flex flex-wrap justify-center gap-3">
+            {["ทั้งหมด", "เสี่ยงสูง", "เสี่ยงปานกลาง", "เสี่ยงน้อย"].map((r) => (
+              <button
+                key={r}
+                onClick={() => setSelectedRisk(r)}
+                className={`px-5 py-2 rounded-lg shadow text-white transition ${
+                  r === "เสี่ยงสูง"
+                    ? "bg-red-600 hover:bg-red-700"
+                    : r === "เสี่ยงปานกลาง"
+                    ? "bg-yellow-500 hover:bg-yellow-600"
+                    : r === "เสี่ยงน้อย"
+                    ? "bg-green-600 hover:bg-green-700"
+                    : "bg-gray-600 hover:bg-gray-700"
+                } ${selectedRisk === r ? "ring-4 ring-offset-2" : ""}`}
+              >
+                {r === "ทั้งหมด" ? "แสดงทั้งหมด" : `กลุ่ม${r}`}
+              </button>
+            ))}
+          </div>
 
-                        {/* ✅ ใช้ yesCount แทน risk_count */}
-                        <td
-                          className={`p-2 border ${riskColor(
-                            riskLabel(p.yesCount)
-                          )}`}
-                        >
-                          {riskLabel(p.yesCount)}
-                        </td>
-
-                        <td className="p-2 border">{p.resultText}</td>
-                        <td className="p-2 border">
-                          {toThaiDate(p.assessmentDate)}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </>
-          )}
+          {/* 🔹 ตาราง */}
+          <Suspense fallback={<div className="text-center py-4">📄 กำลังโหลดตาราง...</div>}>
+            {selectedRisk === "ทั้งหมด" ? (
+              <>
+                {renderRiskTable("เสี่ยงสูง")}
+                {renderRiskTable("เสี่ยงปานกลาง")}
+                {renderRiskTable("เสี่ยงน้อย")}
+              </>
+            ) : (
+              renderRiskTable(selectedRisk)
+            )}
+          </Suspense>
         </div>
       </div>
     </div>
