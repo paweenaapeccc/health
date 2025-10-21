@@ -19,7 +19,7 @@ const QUESTIONS = [
 export default function KneeOAScreeningPage() {
   const router = useRouter()
   const [mounted, setMounted] = useState(false)
-  const [isPending, startTransition] = useTransition() // ✅ ลด re-render ตอนเปลี่ยน state
+  const [isPending, startTransition] = useTransition()
   const [citizenID, setCitizenID] = useState("")
   const [elderVerified, setElderVerified] = useState(false)
   const [elderInfo, setElderInfo] = useState(null)
@@ -30,6 +30,7 @@ export default function KneeOAScreeningPage() {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState("")
   const [resultRow, setResultRow] = useState(null)
+  const [history, setHistory] = useState([]) // ✅ เก็บประวัติการประเมินทั้งหมด
   const [today, setToday] = useState("")
   const [userName, setUserName] = useState("ไม่ระบุ")
 
@@ -64,7 +65,7 @@ export default function KneeOAScreeningPage() {
     })
   }, [])
 
-  /* ✅ คำนวณผลเฉพาะตอนจำเป็น */
+  /* ✅ คำนวณผล */
   const yesCount = useMemo(() => Object.values(deferredAnswers).filter((v) => v === "yes").length, [deferredAnswers])
   const allAnswered = useMemo(() => Object.values(deferredAnswers).every((v) => v !== null), [deferredAnswers])
   const resultText = useMemo(() => {
@@ -86,6 +87,17 @@ export default function KneeOAScreeningPage() {
     })
   }
 
+  /* ✅ โหลดประวัติการประเมินทั้งหมด */
+  const loadHistory = async (citizenID) => {
+    try {
+      const res = await fetch(`/api/followup?mode=detail&citiZenID=${citizenID}`, { cache: "no-store" })
+      const data = await res.json()
+      setHistory(Array.isArray(data) ? data : [])
+    } catch {
+      setHistory([])
+    }
+  }
+
   /* ✅ ตรวจสอบเลขบัตรประชาชน */
   const checkElder = async () => {
     setChecking(true)
@@ -93,6 +105,7 @@ export default function KneeOAScreeningPage() {
     setElderInfo(null)
     setCheckError("")
     setResultRow(null)
+    setHistory([])
 
     try {
       const res = await fetch(`${CHECK_ELDER_ENDPOINT}?citizenID=${encodeURIComponent(citizenID.trim())}`, {
@@ -105,6 +118,8 @@ export default function KneeOAScreeningPage() {
         setElderVerified(true)
         const info = data.data || { elderlyID: data.elderlyID, name: data.name }
         setElderInfo(info)
+
+        // ✅ โหลดผลล่าสุด (ถ้ามี)
         if (data.assessment) {
           setResultRow({
             elderlyName: info.name,
@@ -113,6 +128,9 @@ export default function KneeOAScreeningPage() {
             assessmentDate: data.assessment.assessmentDate,
           })
         }
+
+        // ✅ โหลดประวัติทั้งหมด
+        loadHistory(info.citizenID || citizenID.trim())
       } else {
         setCheckError("ไม่พบข้อมูลเลขบัตรประชาชนนี้ในระบบ กรุณาเพิ่มข้อมูลก่อนทำแบบประเมิน")
       }
@@ -166,12 +184,14 @@ export default function KneeOAScreeningPage() {
       })
       if (!res2.ok) throw new Error("บันทึกผลสรุปไม่สำเร็จ")
 
+      // ✅ บันทึกสำเร็จ
       setResultRow({
         elderlyName: elderInfo?.name ?? "",
         as_results: textFromServer,
         as_score: yesFromServer,
         assessmentID,
       })
+      loadHistory(elderInfo.citizenID || citizenID.trim()) // โหลดประวัติใหม่
     } catch (e) {
       setSaveError(e.message || "เกิดข้อผิดพลาดในการบันทึก")
     } finally {
@@ -187,7 +207,7 @@ export default function KneeOAScreeningPage() {
       </div>
     )
 
-  /* ✅ เนื้อหา */
+  /* ✅ UI หลัก */
   return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl border border-gray-200 p-8 space-y-8">
@@ -200,12 +220,13 @@ export default function KneeOAScreeningPage() {
           <p>👤 <b>ชื่อผู้กรอก:</b> {userName}</p>
         </div>
 
+        {/* 🔹 เกณฑ์ */}
         <div className="text-left">
           <b>🔹 เกณฑ์การพิจารณา:</b>
           <p className="pl-6">หากตอบ “ใช่” ตั้งแต่ 2 ข้อขึ้นไป มีโอกาสเป็นโรคข้อเข่าเสื่อม</p>
         </div>
 
-        {/* เลขบัตร */}
+        {/* 🔹 กรอกเลขบัตร */}
         <div className="mb-5">
           <label className="block font-medium text-gray-700 mb-2">
             เลขบัตรประชาชน <span className="text-red-600">*</span>
@@ -245,14 +266,10 @@ export default function KneeOAScreeningPage() {
           )}
         </div>
 
-        {/* ฟอร์มคำถาม */}
+        {/* 🔹 ฟอร์มคำถาม */}
         {!resultRow && (
           <>
-            <div
-              className={`overflow-hidden rounded-xl border ${
-                elderVerified ? "border-gray-200" : "border-gray-300 opacity-60 pointer-events-none"
-              }`}
-            >
+            <div className={`overflow-hidden rounded-xl border ${elderVerified ? "border-gray-200" : "border-gray-300 opacity-60 pointer-events-none"}`}>
               <table className="w-full">
                 <thead className="bg-gray-100 text-gray-700">
                   <tr>
@@ -296,7 +313,7 @@ export default function KneeOAScreeningPage() {
           </>
         )}
 
-        {/* แสดงผลลัพธ์ */}
+        {/* 🔹 แสดงผลลัพธ์ */}
         {resultRow && (
           <div className="mt-8 p-6 rounded-2xl border shadow-md bg-gradient-to-br from-indigo-50 to-purple-50">
             <h2 className="text-xl font-bold text-indigo-800 mb-4 text-center">🩺 ผลการประเมินล่าสุด</h2>
@@ -307,6 +324,9 @@ export default function KneeOAScreeningPage() {
                   <span className="ml-2 text-sm text-gray-500">(คะแนน {resultRow.as_score})</span>
                 )}
               </p>
+              {resultRow.assessmentDate && (
+                <p><b>วันที่ประเมิน:</b> {resultRow.assessmentDate}</p>
+              )}
             </div>
 
             {resultRow.as_results.includes("มีโอกาสที่จะเป็นโรคข้อเข่าเสื่อม") && (
@@ -322,18 +342,47 @@ export default function KneeOAScreeningPage() {
               </div>
             )}
 
+            {/* ✅ ปุ่มทำแบบประเมินใหม่ */}
             <div className="mt-6 flex justify-center">
               <button
                 onClick={() => {
                   reset()
-                  setCitizenID("")
-                  setElderVerified(false)
-                  setElderInfo(null)
+                  setResultRow(null)
+                  setAnswers(Object.fromEntries(QUESTIONS.map((q) => [q.id, null])))
                 }}
                 className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
               >
-                ทำแบบประเมินใหม่
+                🔄 ทำแบบประเมินใหม่
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* 🔹 ตารางประวัติทั้งหมด */}
+        {history.length > 0 && (
+          <div className="mt-8 bg-white/90 rounded-2xl p-6 border border-gray-200 shadow-md">
+            <h3 className="text-lg font-bold text-indigo-700 mb-3 text-center">📜 ประวัติการประเมินทั้งหมด</h3>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm text-gray-700 border border-gray-200 rounded-xl">
+                <thead className="bg-gray-100">
+                  <tr>
+                    <th className="p-2 text-left">วันที่</th>
+                    <th className="p-2 text-center">คะแนน</th>
+                    <th className="p-2 text-left">ผลการประเมิน</th>
+                    <th className="p-2 text-left">ผู้ประเมิน</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((h, i) => (
+                    <tr key={i} className="border-t hover:bg-gray-50 transition">
+                      <td className="p-2">{h.assessmentDate}</td>
+                      <td className="p-2 text-center">{h.yesCount}</td>
+                      <td className="p-2">{h.resultText}</td>
+                      <td className="p-2">{h.assessorName}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
         )}

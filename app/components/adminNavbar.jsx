@@ -13,7 +13,8 @@ import {
   BarChart3,
   ChevronDown,
   Menu,
-  X
+  X,
+  ClipboardList // ✅ เพิ่มไอคอนใหม่สำหรับเมนูแบบประเมิน
 } from 'lucide-react'
 
 export default function AdminNavbar() {
@@ -26,7 +27,6 @@ export default function AdminNavbar() {
   const [openReport, setOpenReport] = useState(false)
   const reportRef = useRef(null)
 
-  // ✅ ตรวจสอบ session
   useEffect(() => {
     const checkSession = async () => {
       try {
@@ -44,7 +44,6 @@ export default function AdminNavbar() {
     checkSession()
   }, [pathname])
 
-  // ✅ ปิด dropdown รายงานเมื่อคลิกข้างนอก
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (reportRef.current && !reportRef.current.contains(e.target)) {
@@ -75,9 +74,7 @@ export default function AdminNavbar() {
   return (
     <nav className="fixed top-0 left-0 w-full z-50 bg-white/90 backdrop-blur-md shadow-md">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* 🔹 แถวบน */}
         <div className="flex justify-between items-center h-16">
-          {/* โลโก้และชื่อระบบ */}
           <div className="flex items-center gap-2">
             <Image src="/logo.jpeg" alt="Logo" width={40} height={40} className="rounded-full" />
             <span className="font-semibold text-sm sm:text-lg text-gray-900">
@@ -85,7 +82,6 @@ export default function AdminNavbar() {
             </span>
           </div>
 
-          {/* ปุ่ม Hamburger */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
             className="md:hidden p-2 rounded-lg hover:bg-gray-100"
@@ -97,18 +93,31 @@ export default function AdminNavbar() {
           <ul className="hidden md:flex items-center space-x-6 text-gray-700 font-medium">
 
             {isLoggedIn && role === 'admin' && (
-              <li>
-                <Link
-                  href="/admin/elderly"
-                  className={itemCls(isActive('/admin/elderly'))}
-                >
-                  <Users size={20} />
-                  <span>ผู้สูงอายุ</span>
-                </Link>
-              </li>
+              <>
+                <li>
+                  <Link
+                    href="/admin/elderly"
+                    className={itemCls(isActive('/admin/elderly'))}
+                  >
+                    <Users size={20} />
+                    <span>ผู้สูงอายุ</span>
+                  </Link>
+                </li>
+
+                {/* ✅ เพิ่มเมนูใหม่ */}
+                <li>
+                  <Link
+                    href="/admin/followup"
+                    className={itemCls(isActive('/admin/followup'))}
+                  >
+                    <ClipboardList size={20} />
+                    <span>ข้อมูลการติดตามโรค</span>
+                  </Link>
+                </li>
+              </>
             )}
 
-            {/* เมนูรายงาน */}
+            {/* 🔹 เมนูรายงาน */}
             {isLoggedIn && (
               <li className="relative" ref={reportRef}>
                 <button
@@ -188,19 +197,33 @@ export default function AdminNavbar() {
           <ul className="flex flex-col space-y-2 p-4 text-gray-700 font-medium">
 
             {isLoggedIn && role === 'admin' && (
-              <li>
-                <Link
-                  href="/admin/elderly"
-                  onClick={() => setMenuOpen(false)}
-                  className={itemCls(isActive('/admin/elderly'))}
-                >
-                  <Users size={20} />
-                  <span>ผู้สูงอายุ</span>
-                </Link>
-              </li>
+              <>
+                <li>
+                  <Link
+                    href="/admin/elderly"
+                    onClick={() => setMenuOpen(false)}
+                    className={itemCls(isActive('/admin/elderly'))}
+                  >
+                    <Users size={20} />
+                    <span>ผู้สูงอายุ</span>
+                  </Link>
+                </li>
+
+                {/* ✅ เพิ่มเมนูใหม่ใน Mobile */}
+                <li>
+                  <Link
+                    href="/admin/followup"
+                    onClick={() => setMenuOpen(false)}
+                    className={itemCls(isActive('/admin/followup'))}
+                  >
+                    <ClipboardList size={20} />
+                    <span>ข้อมูลการติดตามโรค</span>
+                  </Link>
+                </li>
+              </>
             )}
 
-            {/* เมนูรายงาน (แบบ accordion) */}
+            {/* 🔹 เมนูรายงาน (Accordion) */}
             {isLoggedIn && (
               <li>
                 <details className="group">
@@ -234,7 +257,7 @@ export default function AdminNavbar() {
             {isLoggedIn && (
               <li className="text-sm text-gray-800 px-3 py-2">
                 สวัสดี, {username}
-              {role ? ` (${role})` : ''}
+                {role ? ` (${role})` : ''}
               </li>
             )}
 
