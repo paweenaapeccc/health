@@ -22,11 +22,15 @@ export default function EditElderlyPage() {
     subdistrict: '',
     district: '',
     province: '',
-    latlong: '', // ✅ ช่องเดียวสำหรับเก็บพิกัด
+    latlong: '',
     height: '',
     weight: '',
     disease: '',
-    note: ''
+    note: '',
+    exerciseFrequency: '',
+    foodHabit: '',
+    smoking: '',
+    alcohol: ''
   })
 
   /* ------------------------------------------------------------
@@ -73,11 +77,15 @@ export default function EditElderlyPage() {
           subdistrict: data.subdistrict ?? '',
           district: data.district ?? '',
           province: data.province ?? '',
-          latlong: data.latlong?.trim?.() || '', // ✅ ดึงค่าพิกัดจาก latlong โดยตรง
+          latlong: data.latlong?.trim?.() || '',
           height: data.height ?? '',
           weight: data.weight ?? '',
           disease: data.disease ?? '',
-          note: data.note ?? ''
+          note: data.note ?? '',
+          exerciseFrequency: data.exerciseFrequency ?? '',
+          foodHabit: data.foodHabit ?? '',
+          smoking: data.smoking ?? '',
+          alcohol: data.alcohol ?? ''
         })
       } catch {
         setModal({ show: true, text: 'ไม่สามารถโหลดข้อมูลได้ ❌', success: false })
@@ -109,7 +117,6 @@ export default function EditElderlyPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...formData,
-          phoneNumber: formData.phoneNumber,
           birthDate: toChristianDate(formData.birthDate)
         })
       })
@@ -129,9 +136,11 @@ export default function EditElderlyPage() {
 
   if (loading) return <div className="p-6 text-center">⏳ กำลังโหลดข้อมูล…</div>
 
+  // ✅ ส่วนประกาศ className ใช้ร่วมกัน
   const label = 'text-sm font-medium text-slate-700'
   const input =
     'w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-slate-800 placeholder-slate-400 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition'
+  const sectionTitle = 'text-lg font-semibold text-slate-900 mb-4'
 
   return (
     <div>
@@ -260,7 +269,7 @@ export default function EditElderlyPage() {
 
           {/* 🔹 ข้อมูลสุขภาพ */}
           <div className="border-t border-gray-300 pt-4">
-            <h2 className="text-lg font-semibold text-gray-800 mb-3">ข้อมูลสุขภาพ</h2>
+            <h2 className={sectionTitle}>ข้อมูลสุขภาพ</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className={label}>ส่วนสูง (ซม.)</label>
@@ -280,6 +289,71 @@ export default function EditElderlyPage() {
               <textarea name="note" value={formData.note} onChange={handleChange} className={input} rows={3} />
             </div>
           </div>
+
+          {/* ✅ พฤติกรรมสุขภาพ */}
+          <section>
+            <h2 className={sectionTitle}>พฤติกรรมสุขภาพของผู้สูงอายุที่มีภาวะข้อเข่าเสื่อม</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={label}>ความถี่ในการออกกำลังกาย</label>
+                <select
+                  name="exerciseFrequency"
+                  value={formData.exerciseFrequency}
+                  onChange={handleChange}
+                  className={input}
+                >
+                  <option value="">เลือกความถี่</option>
+                  <option value="daily">ทุกวัน</option>
+                  <option value="3-5">3-5 ครั้ง/สัปดาห์</option>
+                  <option value="1-2">1-2 ครั้ง/สัปดาห์</option>
+                  <option value="rarely">ไม่ค่อยออกกำลังกาย</option>
+                </select>
+              </div>
+              <div>
+                <label className={label}>พฤติกรรมการบริโภคอาหาร</label>
+                <select
+                  name="foodHabit"
+                  value={formData.foodHabit}
+                  onChange={handleChange}
+                  className={input}
+                >
+                  <option value="">เลือกรูปแบบ</option>
+                  <option value="healthy">ทานอาหารครบ 5 หมู่</option>
+                  <option value="highfat">ชอบอาหารมัน / เค็ม</option>
+                  <option value="sweet">ทานหวานจัด</option>
+                  <option value="irregular">ไม่เป็นเวลา</option>
+                </select>
+              </div>
+              <div>
+                <label className={label}>การสูบบุหรี่</label>
+                <select
+                  name="smoking"
+                  value={formData.smoking}
+                  onChange={handleChange}
+                  className={input}
+                >
+                  <option value="">เลือก</option>
+                  <option value="no">ไม่สูบ</option>
+                  <option value="quit">เลิกแล้ว</option>
+                  <option value="yes">สูบเป็นประจำ</option>
+                </select>
+              </div>
+              <div>
+                <label className={label}>การดื่มแอลกอฮอล์</label>
+                <select
+                  name="alcohol"
+                  value={formData.alcohol}
+                  onChange={handleChange}
+                  className={input}
+                >
+                  <option value="">เลือก</option>
+                  <option value="no">ไม่ดื่ม</option>
+                  <option value="occasionally">ดื่มบางโอกาส</option>
+                  <option value="regular">ดื่มเป็นประจำ</option>
+                </select>
+              </div>
+            </div>
+          </section>
 
           {/* 🔹 ปุ่ม */}
           <div className="flex gap-3 pt-4">

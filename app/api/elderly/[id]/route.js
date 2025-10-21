@@ -34,7 +34,11 @@ export async function GET(req, context) {
         height,
         weight,
         congenitalDisease AS disease,
-        note
+        note,
+        exerciseFrequency,
+        foodHabit,
+        smoking,
+        alcohol
       FROM elderly
       WHERE elderlyID = ?
       LIMIT 1
@@ -115,6 +119,10 @@ export async function PUT(req, { params }) {
       weight,
       disease, // ✅ รับจาก frontend
       note,
+      exerciseFrequency,
+      foodHabit,
+      smoking,
+      alcohol
     } = body
 
     // ✅ แปลง disease → congenitalDisease ให้ตรงคอลัมน์ในฐานข้อมูล
@@ -145,7 +153,11 @@ export async function PUT(req, { params }) {
         height = ?,                -- ✅ ส่วนสูง
         weight = ?,                -- ✅ น้ำหนัก
         congenitalDisease = ?,     -- ✅ โรคประจำตัว
-        note = ?                   -- ✅ หมายเหตุ
+        note = ?,               -- ✅ หมายเหตุ
+        exerciseFrequency = ?,     -- ✅ ความถี่การออกกำลังกาย
+        foodHabit = ?,            -- ✅ นิสัยการรับประทานอาหาร
+        smoking = ?,              -- ✅ การสูบบุหรี่
+        alcohol = ?               -- ✅ การดื่มแอลกอฮอล์
       WHERE elderlyID = ?
       `,
       [
@@ -163,6 +175,10 @@ export async function PUT(req, { params }) {
         weight ?? null,
         congenitalDisease ?? null,
         note ?? null,
+        exerciseFrequency ?? null,
+        foodHabit ?? null,
+        smoking ?? null,
+        alcohol ?? null,
         elderlyID,
       ]
     )

@@ -13,14 +13,30 @@ function ClientOnly({ children }) {
 function AddElderlyForm({ router }) {
   const [submitting, setSubmitting] = useState(false)
   const [modal, setModal] = useState({ show: false, message: '', success: false })
+
+  // ✅ เพิ่มฟิลด์พฤติกรรมสุขภาพ
   const [formData, setFormData] = useState({
-    name: '', phoneNumber: '', citizenID: '', birthDate: '',
-    gender: '', address: '', subdistrict: '', district: '',
-    province: '', latlong: '', height: '', weight: '',
-    congenitalDisease: '', note: ''
+    name: '',
+    phoneNumber: '',
+    citizenID: '',
+    birthDate: '',
+    gender: '',
+    address: '',
+    subdistrict: '',
+    district: '',
+    province: '',
+    latlong: '',
+    height: '',
+    weight: '',
+    congenitalDisease: '',
+    note: '',
+    exerciseFrequency: '',
+    foodHabit: '',
+    smoking: '',
+    alcohol: ''
   })
 
-  const deferredForm = useDeferredValue(formData) // ✅ ลดการ re-render
+  const deferredForm = useDeferredValue(formData)
 
   const parseThaiDateInput = (text) => {
     if (!text) return ''
@@ -32,7 +48,6 @@ function AddElderlyForm({ router }) {
 
   const handleChange = (e) => {
     const { name, value } = e.target
-    // ✅ ทำงานใน requestIdleCallback ลด lag ตอนพิมพ์
     if (typeof window !== 'undefined') {
       requestIdleCallback(() => setFormData((p) => ({ ...p, [name]: value })))
     }
@@ -47,10 +62,10 @@ function AddElderlyForm({ router }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...deferredForm,
-          birthDate: parseThaiDateInput(deferredForm.birthDate),
+          birthDate: parseThaiDateInput(deferredForm.birthDate)
         }),
-        keepalive: true, // ✅ ปรับให้เร็วขึ้นใน background
-        cache: 'no-store',
+        keepalive: true,
+        cache: 'no-store'
       })
 
       const data = await res.json().catch(() => ({}))
@@ -78,18 +93,14 @@ function AddElderlyForm({ router }) {
       {modal.show && (
         <div className="fixed inset-0 flex items-center justify-center bg-black/40 z-[9999]">
           <div className="bg-white rounded-2xl p-8 shadow-xl max-w-sm w-full mx-4 text-center">
-            <h2
-              className={`text-xl font-bold mb-2 ${modal.success ? 'text-green-600' : 'text-red-600'}`}
-            >
+            <h2 className={`text-xl font-bold mb-2 ${modal.success ? 'text-green-600' : 'text-red-600'}`}>
               {modal.success ? 'สำเร็จ' : 'แจ้งเตือน'}
             </h2>
             <p className="text-gray-700 mb-4">{modal.message}</p>
             <button
               onClick={() => setModal({ show: false, message: '', success: false })}
               className={`px-6 py-2.5 rounded-xl text-white font-medium shadow transition ${
-                modal.success
-                  ? 'bg-green-600 hover:bg-green-700'
-                  : 'bg-red-500 hover:bg-red-600'
+                modal.success ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'
               }`}
             >
               ตกลง
@@ -110,14 +121,28 @@ function AddElderlyForm({ router }) {
           onSubmit={handleSubmit}
           className="rounded-2xl bg-white shadow-md ring-1 ring-slate-100 p-6 md:p-8 space-y-8"
         >
+          {/* 🔹 ข้อมูลส่วนตัว */}
           <section>
             <h2 className={sectionTitle}>ข้อมูลส่วนตัว</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label className={label}>ชื่อ-สกุล *</label><input name="name" className={input} onChange={handleChange} required /></div>
-              <div><label className={label}>เบอร์โทรศัพท์ *</label><input name="phoneNumber" className={input} onChange={handleChange} required /></div>
-              <div><label className={label}>เลขบัตรประชาชน *</label><input name="citizenID" className={input} onChange={handleChange} required /></div>
-              <div><label className={label}>วันเดือนปีเกิด (พ.ศ.) *</label><input name="birthDate" className={input} onChange={handleChange} required /></div>
-              <div><label className={label}>เพศ *</label>
+              <div>
+                <label className={label}>ชื่อ-สกุล *</label>
+                <input name="name" className={input} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className={label}>เบอร์โทรศัพท์ *</label>
+                <input name="phoneNumber" className={input} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className={label}>เลขบัตรประชาชน *</label>
+                <input name="citizenID" className={input} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className={label}>วันเดือนปีเกิด (พ.ศ.) *</label>
+                <input name="birthDate" className={input} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className={label}>เพศ *</label>
                 <select name="gender" className={input} onChange={handleChange} required>
                   <option value="">เลือกเพศ</option>
                   <option value="male">ชาย</option>
@@ -127,32 +152,110 @@ function AddElderlyForm({ router }) {
             </div>
           </section>
 
+          {/* 🔹 ที่อยู่ */}
           <section>
             <h2 className={sectionTitle}>ที่อยู่</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="md:col-span-2"><label className={label}>ที่อยู่ *</label><input name="address" className={input} onChange={handleChange} required /></div>
-              <div><label className={label}>ตำบล *</label><input name="subdistrict" className={input} onChange={handleChange} required /></div>
-              <div><label className={label}>อำเภอ *</label><input name="district" className={input} onChange={handleChange} required /></div>
-              <div><label className={label}>จังหวัด *</label><input name="province" className={input} onChange={handleChange} required /></div>
+              <div className="md:col-span-2">
+                <label className={label}>ที่อยู่ *</label>
+                <input name="address" className={input} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className={label}>ตำบล *</label>
+                <input name="subdistrict" className={input} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className={label}>อำเภอ *</label>
+                <input name="district" className={input} onChange={handleChange} required />
+              </div>
+              <div>
+                <label className={label}>จังหวัด *</label>
+                <input name="province" className={input} onChange={handleChange} required />
+              </div>
             </div>
           </section>
 
+          {/* 🔹 พิกัด */}
           <section>
             <h2 className={sectionTitle}>พิกัด</h2>
             <label className={label}>ละติจูด,ลองจิจูด</label>
-            <input name="latlong" placeholder="14.9999,103.0000" className={input} onChange={handleChange} />
+            <input
+              name="latlong"
+              placeholder="14.9999,103.0000"
+              className={input}
+              onChange={handleChange}
+            />
           </section>
 
+          {/* 🔹 ข้อมูลสุขภาพ */}
           <section>
             <h2 className={sectionTitle}>ข้อมูลสุขภาพ</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div><label className={label}>ส่วนสูง (ซม.)</label><input name="height" type="number" className={input} onChange={handleChange} /></div>
-              <div><label className={label}>น้ำหนัก (กก.)</label><input name="weight" type="number" className={input} onChange={handleChange} /></div>
-              <div className="md:col-span-2"><label className={label}>โรคประจำตัว</label><input name="congenitalDisease" className={input} onChange={handleChange} /></div>
-              <div className="md:col-span-2"><label className={label}>หมายเหตุ</label><textarea name="note" rows="2" className={input} onChange={handleChange} /></div>
+              <div>
+                <label className={label}>ส่วนสูง (ซม.)</label>
+                <input name="height" type="number" className={input} onChange={handleChange} />
+              </div>
+              <div>
+                <label className={label}>น้ำหนัก (กก.)</label>
+                <input name="weight" type="number" className={input} onChange={handleChange} />
+              </div>
+              <div className="md:col-span-2">
+                <label className={label}>โรคประจำตัว</label>
+                <input name="congenitalDisease" className={input} onChange={handleChange} />
+              </div>
+              <div className="md:col-span-2">
+                <label className={label}>หมายเหตุ</label>
+                <textarea name="note" rows="2" className={input} onChange={handleChange} />
+              </div>
             </div>
           </section>
 
+          {/* 🔹 พฤติกรรมสุขภาพ */}
+          <section>
+            <h2 className={sectionTitle}>พฤติกรรมสุขภาพของผู้สูงอายุที่มีภาวะข้อเข่าเสื่อม</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className={label}>ความถี่ในการออกกำลังกาย</label>
+                <select name="exerciseFrequency" className={input} onChange={handleChange}>
+                  <option value="">เลือกความถี่</option>
+                  <option value="daily">ทุกวัน</option>
+                  <option value="3-5">3-5 ครั้ง/สัปดาห์</option>
+                  <option value="1-2">1-2 ครั้ง/สัปดาห์</option>
+                  <option value="rarely">ไม่ค่อยออกกำลังกาย</option>
+                </select>
+              </div>
+              <div>
+                <label className={label}>พฤติกรรมการบริโภคอาหาร</label>
+                <select name="foodHabit" className={input} onChange={handleChange}>
+                  <option value="">เลือกรูปแบบ</option>
+                  <option value="healthy">ทานอาหารครบ 5 หมู่</option>
+                  <option value="highfat">ชอบอาหารมัน / เค็ม</option>
+                  <option value="sweet">ทานหวานจัด</option>
+                  <option value="irregular">ไม่เป็นเวลา</option>
+                </select>
+              </div>
+              <div>
+                <label className={label}>การสูบบุหรี่</label>
+                <select name="smoking" className={input} onChange={handleChange}>
+                  <option value="">เลือก</option>
+                  <option value="no">ไม่สูบ</option>
+                  <option value="quit">เลิกแล้ว</option>
+                  <option value="yes">สูบเป็นประจำ</option>
+                </select>
+              </div>
+              <div>
+                <label className={label}>การดื่มแอลกอฮอล์</label>
+                <select name="alcohol" className={input} onChange={handleChange}>
+                  <option value="">เลือก</option>
+                  <option value="no">ไม่ดื่ม</option>
+                  <option value="occasionally">ดื่มบางโอกาส</option>
+                  <option value="regular">ดื่มเป็นประจำ</option>
+                </select>
+              </div>
+            </div>
+          </section>
+
+          {/* 🔹 ปุ่มบันทึก */}
           <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-3 pt-2">
             <button
               type="button"
@@ -178,7 +281,6 @@ function AddElderlyForm({ router }) {
 export default function AddElderlyMemberPage() {
   const router = useRouter()
 
-  // ✅ preload หน้า /member/elderly ให้ router รู้ล่วงหน้า
   useEffect(() => {
     router.prefetch('/member/elderly')
   }, [router])

@@ -51,12 +51,11 @@ export default function AdminElderlyPage() {
   );
 
   /* ------------------------------------------------------------
-     ✅ โหลดข้อมูลจาก API (เพิ่ม cache + cancel)
+     ✅ โหลดข้อมูลจาก API
   ------------------------------------------------------------ */
   const load = async (searchText = q, pageNum = page) => {
     setLoading(true);
 
-    // ❌ ยกเลิก fetch เก่าที่ยังไม่เสร็จ
     if (controllerRef.current) controllerRef.current.abort();
     controllerRef.current = new AbortController();
 
@@ -69,18 +68,12 @@ export default function AdminElderlyPage() {
           cache: "no-store",
           keepalive: true,
           signal: controllerRef.current.signal,
-          next: { revalidate: 5 }, // ✅ cache เบา ๆ 5 วิ
+          next: { revalidate: 5 },
         }
       );
 
       if (!res.ok) throw new Error("Failed to fetch");
       const json = await res.json();
-
-      // ✅ โหลดข้อมูลเร็วขึ้นโดยใช้ Promise.all
-      await Promise.all([
-        new Promise((r) => setTimeout(r, 50)), // delay เล็กน้อยเพื่อ UX
-      ]);
-
       const data = Array.isArray(json) ? json : json.data || [];
       setRows(data);
       setTotal(json.total ?? data.length ?? 0);
@@ -151,6 +144,40 @@ export default function AdminElderlyPage() {
   };
 
   /* ------------------------------------------------------------
+     ✅ ฟังก์ชันแปลงค่าพฤติกรรมสุขภาพเป็นภาษาไทย
+  ------------------------------------------------------------ */
+  const translateHealthValue = (key, value) => {
+    if (!value) return "-";
+
+    const maps = {
+      exerciseFrequency: {
+        daily: "ทุกวัน",
+        "3-5": "3-5 ครั้ง/สัปดาห์",
+        "1-2": "1-2 ครั้ง/สัปดาห์",
+        rarely: "ไม่ค่อยออกกำลังกาย",
+      },
+      foodHabit: {
+        healthy: "ทานอาหารครบ 5 หมู่",
+        highfat: "ชอบอาหารมัน / เค็ม",
+        sweet: "ทานหวานจัด",
+        irregular: "ไม่เป็นเวลา",
+      },
+      smoking: {
+        no: "ไม่สูบ",
+        quit: "เลิกแล้ว",
+        yes: "สูบเป็นประจำ",
+      },
+      alcohol: {
+        no: "ไม่ดื่ม",
+        occasionally: "ดื่มบางโอกาส",
+        regular: "ดื่มเป็นประจำ",
+      },
+    };
+
+    return maps[key]?.[value] ?? value;
+  };
+
+  /* ------------------------------------------------------------
      ✅ UI
   ------------------------------------------------------------ */
   return (
@@ -169,10 +196,38 @@ export default function AdminElderlyPage() {
               ข้อมูลสุขภาพผู้สูงอายุ
             </h2>
             <div className="space-y-2 text-gray-700">
-              <p><strong>ส่วนสูง:</strong> {detail.data?.height ?? "-"} ซม.</p>
-              <p><strong>น้ำหนัก:</strong> {detail.data?.weight ?? "-"} กก.</p>
-              <p><strong>โรคประจำตัว:</strong> {detail.data?.congenitalDisease ?? "-"}</p>
-              <p><strong>หมายเหตุ:</strong> {detail.data?.note ?? "-"}</p>
+              <p>
+                <strong>ส่วนสูง:</strong> {detail.data?.height ?? "-"} ซม.
+              </p>
+              <p>
+                <strong>น้ำหนัก:</strong> {detail.data?.weight ?? "-"} กก.
+              </p>
+              <p>
+                <strong>โรคประจำตัว:</strong>{" "}
+                {detail.data?.congenitalDisease ?? "-"}
+              </p>
+              <p>
+                <strong>หมายเหตุ:</strong> {detail.data?.note ?? "-"}
+              </p>
+              <p>
+                <strong>ความถี่ในการออกกำลังกาย:</strong>{" "}
+                {translateHealthValue(
+                  "exerciseFrequency",
+                  detail.data?.exerciseFrequency
+                )}
+              </p>
+              <p>
+                <strong>พฤติกรรมการบริโภคอาหาร:</strong>{" "}
+                {translateHealthValue("foodHabit", detail.data?.foodHabit)}
+              </p>
+              <p>
+                <strong>การสูบบุหรี่:</strong>{" "}
+                {translateHealthValue("smoking", detail.data?.smoking)}
+              </p>
+              <p>
+                <strong>การดื่มแอลกอฮอล์:</strong>{" "}
+                {translateHealthValue("alcohol", detail.data?.alcohol)}
+              </p>
             </div>
           </div>
         </div>
@@ -286,11 +341,16 @@ export default function AdminElderlyPage() {
                   const id = r.id ?? r.elderlyID;
                   const name = r.name ?? r.fullName;
                   return (
-                    <tr key={id} className="border-t hover:bg-gray-50 transition">
+                    <tr
+                      key={id}
+                      className="border-t hover:bg-gray-50 transition"
+                    >
                       <td className="p-3">{r.citizenID ?? "-"}</td>
                       <td className="p-3">{name}</td>
                       <td className="p-3">{r.age ?? "-"}</td>
-                      <td className="p-3">{fmtDate(r.birthDate || r.birthdate)}</td>
+                      <td className="p-3">
+                        {fmtDate(r.birthDate || r.birthdate)}
+                      </td>
                       <td className="p-3">{r.address ?? "-"}</td>
                       <td className="p-3">{r.phonNumber || r.phone || "-"}</td>
                       <td className="p-3 text-center">

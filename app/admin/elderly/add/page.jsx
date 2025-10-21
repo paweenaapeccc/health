@@ -30,7 +30,12 @@ export default function AddElderlyAdminPage() {
     height: '',
     weight: '',
     congenitalDisease: '',
-    note: ''
+    note: '',
+    // ✅ เพิ่มฟิลด์พฤติกรรมสุขภาพ
+    exerciseFrequency: '',
+    foodHabit: '',
+    smoking: '',
+    alcohol: ''
   })
 
   const parseThaiDateInput = (text) => {
@@ -117,6 +122,7 @@ export default function AddElderlyAdminPage() {
             onSubmit={handleSubmit}
             className="rounded-2xl bg-white shadow-md ring-1 ring-slate-100 p-6 md:p-8 space-y-8"
           >
+            {/* 🔹 ข้อมูลส่วนตัว */}
             <section>
               <h2 className={sectionTitle}>ข้อมูลส่วนตัว</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -147,6 +153,7 @@ export default function AddElderlyAdminPage() {
               </div>
             </section>
 
+            {/* 🔹 ที่อยู่ */}
             <section>
               <h2 className={sectionTitle}>ที่อยู่</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -169,7 +176,7 @@ export default function AddElderlyAdminPage() {
               </div>
             </section>
 
-            {/* ✅ พิกัดช่องเดียว */}
+            {/* 🔹 พิกัด */}
             <section>
               <h2 className={sectionTitle}>พิกัด</h2>
               <label className={label}>ละติจูด,ลองจิจูด</label>
@@ -181,6 +188,7 @@ export default function AddElderlyAdminPage() {
               />
             </section>
 
+            {/* 🔹 ข้อมูลสุขภาพ */}
             <section>
               <h2 className={sectionTitle}>ข้อมูลสุขภาพ</h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -203,6 +211,56 @@ export default function AddElderlyAdminPage() {
               </div>
             </section>
 
+            {/* ✅ พฤติกรรมสุขภาพ */}
+            <section>
+              <h2 className={sectionTitle}>พฤติกรรมสุขภาพของผู้สูงอายุที่มีภาวะข้อเข่าเสื่อม</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={label}>ความถี่ในการออกกำลังกาย</label>
+                  <select
+                    name="exerciseFrequency"
+                    className={input}
+                    onChange={handleChange}
+                  >
+                    <option value="">เลือกความถี่</option>
+                    <option value="daily">ทุกวัน</option>
+                    <option value="3-5">3-5 ครั้ง/สัปดาห์</option>
+                    <option value="1-2">1-2 ครั้ง/สัปดาห์</option>
+                    <option value="rarely">ไม่ค่อยออกกำลังกาย</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={label}>พฤติกรรมการบริโภคอาหาร</label>
+                  <select name="foodHabit" className={input} onChange={handleChange}>
+                    <option value="">เลือกรูปแบบ</option>
+                    <option value="healthy">ทานอาหารครบ 5 หมู่</option>
+                    <option value="highfat">ชอบอาหารมัน / เค็ม</option>
+                    <option value="sweet">ทานหวานจัด</option>
+                    <option value="irregular">ไม่เป็นเวลา</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={label}>การสูบบุหรี่</label>
+                  <select name="smoking" className={input} onChange={handleChange}>
+                    <option value="">เลือก</option>
+                    <option value="no">ไม่สูบ</option>
+                    <option value="quit">เลิกแล้ว</option>
+                    <option value="yes">สูบเป็นประจำ</option>
+                  </select>
+                </div>
+                <div>
+                  <label className={label}>การดื่มแอลกอฮอล์</label>
+                  <select name="alcohol" className={input} onChange={handleChange}>
+                    <option value="">เลือก</option>
+                    <option value="no">ไม่ดื่ม</option>
+                    <option value="occasionally">ดื่มบางโอกาส</option>
+                    <option value="regular">ดื่มเป็นประจำ</option>
+                  </select>
+                </div>
+              </div>
+            </section>
+
+            {/* 🔹 ปุ่มควบคุม */}
             <div className="flex flex-col-reverse sm:flex-row sm:items-center gap-3 pt-2">
               <button
                 type="button"

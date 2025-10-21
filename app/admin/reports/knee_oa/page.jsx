@@ -24,8 +24,18 @@ const toThaiDate = (dateStr) => {
     const date = new Date(dateStr);
     const year = date.getFullYear() + 543;
     const monthNames = [
-      "มกราคม","กุมภาพันธ์","มีนาคม","เมษายน","พฤษภาคม","มิถุนายน",
-      "กรกฎาคม","สิงหาคม","กันยายน","ตุลาคม","พฤศจิกายน","ธันวาคม",
+      "มกราคม",
+      "กุมภาพันธ์",
+      "มีนาคม",
+      "เมษายน",
+      "พฤษภาคม",
+      "มิถุนายน",
+      "กรกฎาคม",
+      "สิงหาคม",
+      "กันยายน",
+      "ตุลาคม",
+      "พฤศจิกายน",
+      "ธันวาคม",
     ];
     return `${date.getDate()} ${monthNames[date.getMonth()]} ${year}`;
   } catch {
@@ -56,7 +66,7 @@ const riskColor = (risk) => {
 };
 
 /* ------------------------------------------------------------
-   ✅ หน้าเดียวรวมทุกกลุ่ม + ปุ่มกรอง (โหลดเร็วขึ้น)
+   ✅ หน้าแสดงรายงาน
 ------------------------------------------------------------ */
 export default function KneeOAReportPage() {
   const [data, setData] = useState(null);
@@ -67,7 +77,7 @@ export default function KneeOAReportPage() {
   const [selectedRisk, setSelectedRisk] = useState("ทั้งหมด");
   const [isPending, startTransition] = useTransition();
 
-  // ✅ โหลดข้อมูลเร็วขึ้น (parallel fetch + cache เบา)
+  // ✅ โหลดข้อมูลจาก API
   const load = async () => {
     setLoading(true);
     try {
@@ -75,21 +85,14 @@ export default function KneeOAReportPage() {
       if (start) qs.set("start", start);
       if (end) qs.set("end", end);
 
-      // 🔥 ใช้ cache สั้นๆ + parallel fetch
-      const controller = new AbortController();
       const res = await fetch(`/api/reports/knee_oa?${qs.toString()}`, {
-        cache: "force-cache",
-        next: { revalidate: 10 },
-        signal: controller.signal,
+        cache: "no-store",
       });
 
       if (!res.ok) throw new Error("โหลดข้อมูลไม่สำเร็จ");
       const json = await res.json();
 
-      // ✅ preload ข้อมูลที่ต้องใช้ก่อน render กราฟ
-      startTransition(() => {
-        setData(json);
-      });
+      startTransition(() => setData(json));
     } catch (err) {
       console.error("โหลดข้อมูลล้มเหลว:", err);
       setData(null);
@@ -103,9 +106,6 @@ export default function KneeOAReportPage() {
     load();
   }, []);
 
-  /* ------------------------------------------------------------
-     ✅ Memo คำนวณข้อมูลกราฟ (ลด re-render)
-  ------------------------------------------------------------ */
   const barData = useMemo(() => {
     if (!data) return [];
     return data.bands.map((band) => ({
@@ -128,7 +128,86 @@ export default function KneeOAReportPage() {
   if (!mounted) return null;
 
   /* ------------------------------------------------------------
-     ✅ ตารางแบบ Lazy Render (render ทีละ risk group)
+     ✅ ฟังก์ชันดาวน์โหลด CSV (แยกเพศ + อายุ + ความเสี่ยง)
+  ------------------------------------------------------------ */
+  const downloadCSV = (rows, riskGroup) => {
+    if (!rows?.length) return;
+
+    // ✅ แปลงช่วงอายุ
+    const getBand = (age) => {
+      if (age < 70) return "60–69";
+      if (age < 80) return "70–79";
+      return "80+";
+    };
+
+    // ✅ กลุ่มข้อมูลตาม เพศ + อายุ + ความเสี่ยง
+    const grouped = {};
+    rows.forEach((p) => {
+      const gender = genderLabel(p.gender);
+      const band = getBand(p.age);
+      const risk = riskLabel(p.yesCount);
+      const key = `${gender}_${band}_${risk}`;
+      if (!grouped[key]) grouped[key] = { gender, band, risk, count: 0 };
+      grouped[key].count++;
+    });
+
+    // ✅ สร้าง CSV สรุป
+    const headers = ["เพศ", "ช่วงอายุ", "กลุ่มความเสี่ยง", "จำนวน"];
+    const summaryLines = [
+      headers.join(","),
+      ...Object.values(grouped).map((g) =>
+        [g.gender, g.band, g.risk, g.count].join(",")
+      ),
+    ];
+
+    // ✅ สร้าง CSV รายบุคคล
+    const detailHeaders = [
+      "เลขบัตรประชาชน",
+      "ชื่อ-สกุล",
+      "เพศ",
+      "อายุ",
+      "กลุ่มความเสี่ยง",
+      "ผลการประเมินล่าสุด",
+      "วันที่ประเมิน",
+    ];
+    const detailLines = [
+      detailHeaders.join(","),
+      ...rows.map((p) =>
+        [
+          p.citizenID,
+          `"${p.name}"`,
+          genderLabel(p.gender),
+          p.age,
+          riskLabel(p.yesCount),
+          `"${p.resultText}"`,
+          toThaiDate(p.assessmentDate),
+        ].join(",")
+      ),
+    ];
+
+    // ✅ รวมเป็นไฟล์เดียว
+    const csvContent = [
+      "สรุปตามเพศ ช่วงอายุ และความเสี่ยง",
+      ...summaryLines,
+      "",
+      "รายละเอียดแต่ละคน",
+      ...detailLines,
+    ].join("\n");
+
+    // ✅ ดาวน์โหลดไฟล์ CSV
+    const blob = new Blob(["\uFEFF" + csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `risk_summary_${riskGroup}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  /* ------------------------------------------------------------
+     ✅ ตารางรายกลุ่ม
   ------------------------------------------------------------ */
   const renderRiskTable = (riskGroup) => {
     const filtered = data?.list?.filter(
@@ -136,21 +215,33 @@ export default function KneeOAReportPage() {
     );
     if (!filtered?.length) return null;
 
+    const bands = ["60–69", "70–79", "80+"];
+
     return (
       <div
         key={riskGroup}
         className="overflow-x-auto border rounded-lg bg-white mb-8 transition-all"
       >
-        <h2 className="text-lg font-semibold p-4 border-b flex items-center justify-between">
-          <span>
+        <div className="flex justify-between items-center p-4 border-b">
+          <h2 className="text-lg font-semibold">
             กลุ่มความเสี่ยง:{" "}
             <span className={riskColor(riskGroup)}>{riskGroup}</span>
-          </span>
-          <span className="text-sm text-gray-500">
-            จำนวนทั้งหมด {filtered.length} คน
-          </span>
-        </h2>
-        <table className="min-w-full text-sm">
+          </h2>
+          <div className="flex items-center gap-4">
+            <span className="text-sm text-gray-500">
+              จำนวนทั้งหมด {filtered.length} คน
+            </span>
+            <button
+              onClick={() => downloadCSV(filtered, riskGroup)}
+              className="px-4 py-1.5 rounded bg-green-600 hover:bg-green-700 text-white text-sm shadow"
+            >
+              ดาวน์โหลด CSV
+            </button>
+          </div>
+        </div>
+
+        {/* แสดงตาราง */}
+        <table className="min-w-full text-sm border">
           <thead className="bg-gray-100">
             <tr>
               <th className="p-2 border text-left">เลขบัตรประชาชน</th>
@@ -183,7 +274,7 @@ export default function KneeOAReportPage() {
   };
 
   /* ------------------------------------------------------------
-     ✅ Render UI (ใช้ Suspense + Transition)
+     ✅ UI หลัก
   ------------------------------------------------------------ */
   return (
     <div className="min-h-screen ">
@@ -193,7 +284,7 @@ export default function KneeOAReportPage() {
             รายงานภาวะข้อเข่าเสื่อม แยกตามกลุ่มความเสี่ยง
           </h1>
 
-          {/* 🔹 ฟิลเตอร์วันที่ */}
+          {/* ฟิลเตอร์วันที่ */}
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-end justify-center">
             <div>
               <label className="block text-sm mb-1">วันที่เริ่ม</label>
@@ -225,7 +316,7 @@ export default function KneeOAReportPage() {
             </button>
           </div>
 
-          {/* 🔹 กราฟ */}
+          {/* กราฟ */}
           <Suspense fallback={<div className="text-center py-4">📊 กำลังโหลดกราฟ...</div>}>
             {!data ? (
               <div className="text-center text-red-600">โหลดข้อมูลไม่สำเร็จ</div>
@@ -279,7 +370,7 @@ export default function KneeOAReportPage() {
             )}
           </Suspense>
 
-          {/* 🔹 ปุ่มกรอง */}
+          {/* ปุ่มกรอง */}
           <div className="flex flex-wrap justify-center gap-3">
             {["ทั้งหมด", "เสี่ยงสูง", "เสี่ยงปานกลาง", "เสี่ยงน้อย"].map((r) => (
               <button
@@ -300,7 +391,7 @@ export default function KneeOAReportPage() {
             ))}
           </div>
 
-          {/* 🔹 ตาราง */}
+          {/* ตาราง */}
           <Suspense fallback={<div className="text-center py-4">📄 กำลังโหลดตาราง...</div>}>
             {selectedRisk === "ทั้งหมด" ? (
               <>

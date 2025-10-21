@@ -59,6 +59,10 @@ export async function GET(req) {
         e.weight,
         e.congenitalDisease,
         e.note,
+        e.exerciseFrequency,
+        e.foodHabit,
+        e.smoking,
+        e.alcohol,
         ar.as_results AS assessment_result
       FROM elderly e
       LEFT JOIN (
@@ -132,7 +136,8 @@ export async function POST(req) {
       birthDate, gender, address,
       subdistrict, district, province,
       latitude, longitude, latlong,
-      height, weight, congenitalDisease, note
+      height, weight, congenitalDisease, note,
+      exerciseFrequency, foodHabit, smoking, alcohol
     } = body
 
     // ✅ ตรวจสอบข้อมูลจำเป็น
@@ -159,9 +164,10 @@ export async function POST(req) {
       INSERT INTO elderly (
         userID, name, phonNumber, citizenID, birthDate, gender,
         address, subdistrict, district, province, latlong,
-        height, weight, congenitalDisease, note
+        height, weight, congenitalDisease, note,
+        exerciseFrequency, foodHabit, smoking, alcohol
       )
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
       [
         userId,
@@ -178,7 +184,11 @@ export async function POST(req) {
         height ?? null,
         weight ?? null,
         congenitalDisease ?? null,
-        note ?? null
+        note ?? null,
+        exerciseFrequency ?? null,
+        foodHabit ?? null,
+        smoking ?? null,
+        alcohol ?? null
       ]
     )
 

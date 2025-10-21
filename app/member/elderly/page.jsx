@@ -27,7 +27,7 @@ export default function MemberElderlyPage() {
   const [selected, setSelected] = useState(null)
   const [isPending, startTransition] = useTransition()
   const controllerRef = useRef(null)
-  const cacheRef = useRef(new Map()) // ✅ cache ข้อมูลใน memory
+  const cacheRef = useRef(new Map())
 
   const totalPages = useMemo(() => Math.max(Math.ceil(total / pageSize), 1), [total, pageSize])
 
@@ -93,7 +93,7 @@ export default function MemberElderlyPage() {
   }, [q])
 
   /* ----------------------------------------
-     ✅ แสดง Skeleton ตอนโหลด
+     ✅ Skeleton
   ---------------------------------------- */
   const SkeletonRow = () => (
     <tr className="animate-pulse text-gray-400">
@@ -102,6 +102,40 @@ export default function MemberElderlyPage() {
       </td>
     </tr>
   )
+
+  /* ----------------------------------------
+     ✅ แปลงค่าพฤติกรรมสุขภาพเป็นภาษาไทย
+  ---------------------------------------- */
+  const translateHealthValue = (key, value) => {
+    if (!value) return '-'
+
+    const maps = {
+      exerciseFrequency: {
+        daily: 'ทุกวัน',
+        '3-5': '3-5 ครั้ง/สัปดาห์',
+        '1-2': '1-2 ครั้ง/สัปดาห์',
+        rarely: 'ไม่ค่อยออกกำลังกาย',
+      },
+      foodHabit: {
+        healthy: 'ทานอาหารครบ 5 หมู่',
+        highfat: 'ชอบอาหารมัน / เค็ม',
+        sweet: 'ทานหวานจัด',
+        irregular: 'ไม่เป็นเวลา',
+      },
+      smoking: {
+        no: 'ไม่สูบ',
+        quit: 'เลิกแล้ว',
+        yes: 'สูบเป็นประจำ',
+      },
+      alcohol: {
+        no: 'ไม่ดื่ม',
+        occasionally: 'ดื่มบางโอกาส',
+        regular: 'ดื่มเป็นประจำ',
+      },
+    }
+
+    return maps[key]?.[value] ?? value
+  }
 
   /* ----------------------------------------
      ✅ ส่วนแสดงผลหลัก
@@ -229,6 +263,22 @@ export default function MemberElderlyPage() {
               <p><b>น้ำหนัก:</b> {selected.weight ?? '-'}</p>
               <p><b>โรคประจำตัว:</b> {selected.congenitalDisease ?? '-'}</p>
               <p><b>หมายเหตุ:</b> {selected.note ?? '-'}</p>
+              <p>
+                <b>ความถี่ในการออกกำลังกาย:</b>{' '}
+                {translateHealthValue('exerciseFrequency', selected.exerciseFrequency)}
+              </p>
+              <p>
+                <b>พฤติกรรมการบริโภคอาหาร:</b>{' '}
+                {translateHealthValue('foodHabit', selected.foodHabit)}
+              </p>
+              <p>
+                <b>การสูบบุหรี่:</b>{' '}
+                {translateHealthValue('smoking', selected.smoking)}
+              </p>
+              <p>
+                <b>การดื่มแอลกอฮอล์:</b>{' '}
+                {translateHealthValue('alcohol', selected.alcohol)}
+              </p>
             </div>
             <div className="pt-4 flex justify-center">
               <button
