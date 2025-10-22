@@ -133,14 +133,13 @@ export default function KneeOAReportPage() {
   const downloadCSV = (rows, riskGroup) => {
     if (!rows?.length) return;
 
-    // ✅ แปลงช่วงอายุ
     const getBand = (age) => {
       if (age < 70) return "60–69";
       if (age < 80) return "70–79";
       return "80+";
     };
 
-    // ✅ กลุ่มข้อมูลตาม เพศ + อายุ + ความเสี่ยง
+    // ✅ สรุปกลุ่มเพศ + อายุ + ความเสี่ยง
     const grouped = {};
     rows.forEach((p) => {
       const gender = genderLabel(p.gender);
@@ -151,7 +150,6 @@ export default function KneeOAReportPage() {
       grouped[key].count++;
     });
 
-    // ✅ สร้าง CSV สรุป
     const headers = ["เพศ", "ช่วงอายุ", "กลุ่มความเสี่ยง", "จำนวน"];
     const summaryLines = [
       headers.join(","),
@@ -160,19 +158,22 @@ export default function KneeOAReportPage() {
       ),
     ];
 
-    // ✅ สร้าง CSV รายบุคคล
-    const detailHeaders = [
-      "เลขบัตรประชาชน",
-      "ชื่อ-สกุล",
-      "เพศ",
-      "อายุ",
-      "กลุ่มความเสี่ยง",
-      "ผลการประเมินล่าสุด",
-      "วันที่ประเมิน",
-    ];
-    const detailLines = [
-      detailHeaders.join(","),
-      ...rows.map((p) =>
+    // ✅ แยกข้อมูลตามเพศ
+    const males = rows.filter((p) => p.gender === "male");
+    const females = rows.filter((p) => p.gender === "female");
+
+    const makeDetailSection = (title, list) => {
+      if (!list.length) return "";
+      const header = [
+        "เลขบัตรประชาชน",
+        "ชื่อ-สกุล",
+        "เพศ",
+        "อายุ",
+        "กลุ่มความเสี่ยง",
+        "ผลการประเมินล่าสุด",
+        "วันที่ประเมิน",
+      ].join(",");
+      const lines = list.map((p) =>
         [
           p.citizenID,
           `"${p.name}"`,
@@ -182,19 +183,18 @@ export default function KneeOAReportPage() {
           `"${p.resultText}"`,
           toThaiDate(p.assessmentDate),
         ].join(",")
-      ),
-    ];
+      );
+      return [`---- รายละเอียด${title} ----`, header, ...lines, ""].join("\n");
+    };
 
-    // ✅ รวมเป็นไฟล์เดียว
     const csvContent = [
       "สรุปตามเพศ ช่วงอายุ และความเสี่ยง",
       ...summaryLines,
       "",
-      "รายละเอียดแต่ละคน",
-      ...detailLines,
+      makeDetailSection("เพศชาย", males),
+      makeDetailSection("เพศหญิง", females),
     ].join("\n");
 
-    // ✅ ดาวน์โหลดไฟล์ CSV
     const blob = new Blob(["\uFEFF" + csvContent], {
       type: "text/csv;charset=utf-8;",
     });
@@ -207,7 +207,7 @@ export default function KneeOAReportPage() {
   };
 
   /* ------------------------------------------------------------
-     ✅ ตารางรายกลุ่ม
+     ✅ ตารางรายกลุ่ม (แยกเพศ)
   ------------------------------------------------------------ */
   const renderRiskTable = (riskGroup) => {
     const filtered = data?.list?.filter(
@@ -215,7 +215,41 @@ export default function KneeOAReportPage() {
     );
     if (!filtered?.length) return null;
 
-    const bands = ["60–69", "70–79", "80+"];
+    const males = filtered.filter((p) => p.gender === "male");
+    const females = filtered.filter((p) => p.gender === "female");
+
+    const renderGenderTable = (genderTitle, list) => {
+      if (!list.length) return null;
+      return (
+        <div className="mb-6">
+          <h3 className="font-semibold mb-2 text-blue-700">
+            ▪ เพศ{genderTitle} ({list.length} คน)
+          </h3>
+          <table className="min-w-full text-sm border">
+            <thead className="bg-gray-100">
+              <tr>
+                <th className="p-2 border text-left">เลขบัตรประชาชน</th>
+                <th className="p-2 border text-left">ชื่อ-สกุล</th>
+                <th className="p-2 border text-right">อายุ</th>
+                <th className="p-2 border text-left">ผลการประเมินล่าสุด</th>
+                <th className="p-2 border text-left">วันที่ประเมิน</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((p) => (
+                <tr key={p.elderlyID} className="hover:bg-gray-50">
+                  <td className="p-2 border">{p.citizenID}</td>
+                  <td className="p-2 border">{p.name}</td>
+                  <td className="p-2 border text-right">{p.age}</td>
+                  <td className="p-2 border">{p.resultText}</td>
+                  <td className="p-2 border">{toThaiDate(p.assessmentDate)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      );
+    };
 
     return (
       <div
@@ -240,35 +274,10 @@ export default function KneeOAReportPage() {
           </div>
         </div>
 
-        {/* แสดงตาราง */}
-        <table className="min-w-full text-sm border">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-2 border text-left">เลขบัตรประชาชน</th>
-              <th className="p-2 border text-left">ชื่อ-สกุล</th>
-              <th className="p-2 border text-left">เพศ</th>
-              <th className="p-2 border text-right">อายุ</th>
-              <th className="p-2 border text-left">กลุ่มความเสี่ยง</th>
-              <th className="p-2 border text-left">ผลการประเมินล่าสุด</th>
-              <th className="p-2 border text-left">วันที่ประเมิน</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filtered.map((p) => (
-              <tr key={p.elderlyID} className="hover:bg-gray-50">
-                <td className="p-2 border">{p.citizenID}</td>
-                <td className="p-2 border">{p.name}</td>
-                <td className="p-2 border">{genderLabel(p.gender)}</td>
-                <td className="p-2 border text-right">{p.age}</td>
-                <td className={`p-2 border ${riskColor(riskGroup)}`}>
-                  {riskGroup}
-                </td>
-                <td className="p-2 border">{p.resultText}</td>
-                <td className="p-2 border">{toThaiDate(p.assessmentDate)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <div className="p-4">
+          {renderGenderTable("ชาย", males)}
+          {renderGenderTable("หญิง", females)}
+        </div>
       </div>
     );
   };
