@@ -36,7 +36,7 @@ export default function LoginPage() {
         }
       }
     } catch (err) {
-      setError('Network error111')
+      setError('Network error')
     }
   }
 
