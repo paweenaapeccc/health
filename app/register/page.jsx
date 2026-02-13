@@ -42,14 +42,7 @@ export default function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-teal-100 relative">
-      {/* ปุ่มย้อนกลับ */}
-      <Link
-        href="/login"
-        className="absolute top-4 left-4 text-teal-700 text-sm hover:underline flex items-center"
-      >
-        <span className="mr-1 text-lg">&larr;</span> กลับเข้าสู่ระบบ
-      </Link>
-
+    
       {/* กล่องฟอร์มสมัคร */}
       <div className="flex items-center justify-center h-full px-4">
         <div className="w-full max-w-sm bg-white p-8 shadow-md rounded-2xl mt-10">
